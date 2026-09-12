@@ -46,8 +46,6 @@ class PEDTVideoProgressEditBodyView: UIView {
             self.videoProgressContentView.leadingAnchor.constraint(equalTo: self.playAndPauseBtn.trailingAnchor, constant: 15),
             self.videoProgressContentView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -15),
         ])
-        self.videoProgressContentView.layer.cornerRadius = 5
-        self.videoProgressContentView.clipsToBounds = true
         
         self.addSubview(self.videoProgressDragView)
         self.videoProgressDragView.translatesAutoresizingMaskIntoConstraints = false
@@ -58,8 +56,6 @@ class PEDTVideoProgressEditBodyView: UIView {
             self.videoProgressDragView.trailingAnchor.constraint(equalTo: self.videoProgressContentView.trailingAnchor, constant: 5),
         ])
         self.videoProgressDragView.backgroundColor = UIColor.clear
-        self.videoProgressDragView.layer.cornerRadius = 5
-        self.videoProgressDragView.clipsToBounds = true
     }
     
 
@@ -204,44 +200,26 @@ class PEDTVideoProgressDragView: UIView {
         let dragItemHeight = rect.height
         let dragLineWidth = 2.0
         let dragLineHeight = rect.height * 0.3
-        let fillColor = CGColor(red: 247.0/255.0, green: 206.0/255.0, blue: 70.0/255.0, alpha: 1.0)
+        let fillCGColor = CGColor(red: 247.0/255.0, green: 206.0/255.0, blue: 70.0/255.0, alpha: 1.0)
+        let fillColor = UIColor(red: 247.0/255.0, green: 206.0/255.0, blue: 70.0/255.0, alpha: 1.0)
+        let cornerRadius = 10
         
         let leftDragItemMinX = CGRectGetMinX(self.leftDragItem.frame)
         let rightDragItemMinX = CGRectGetMinX(self.rightDragItem.frame)
         /* ===================== 左侧拖拽控件 start ===================== */
-        //创建路径
-        let leftDragItemPath = CGMutablePath()
-        //移动到指定位置(设置路径起点)
-        leftDragItemPath.move(to: CGPointMake(leftDragItemMinX, 0))
-        //添加绘制轨迹
-        leftDragItemPath.addLine(to: CGPointMake(leftDragItemMinX + dragItemWidth, 0))
-        //添加绘制轨迹
-        leftDragItemPath.addLine(to: CGPointMake(leftDragItemMinX + dragItemWidth, dragItemHeight))
-        //添加绘制轨迹
-        leftDragItemPath.addLine(to: CGPointMake(leftDragItemMinX, dragItemHeight))
-        
-        //添加绘制轨迹路径
-        context.addPath(leftDragItemPath)
-        context.setFillColor(fillColor)
-        //开始在绘图层绘制图像
+        let leftDragItemPath = UIBezierPath(roundedRect: self.leftDragItem.frame,
+                                            byRoundingCorners: [.topLeft, .bottomLeft],
+                                            cornerRadii: CGSize(width: cornerRadius, height: cornerRadius))
         context.setBlendMode(.normal)
-        context.fillPath()
+        fillColor.setFill()
+        leftDragItemPath.fill()
         
         //创建路径
         let leftDragLinePath = CGMutablePath()
-        //移动到指定位置(设置路径起点)
-        leftDragLinePath.move(to: CGPointMake(leftDragItemMinX + dragItemWidth/2.0 - dragLineWidth/2.0,
-                                              dragItemHeight/2.0 - dragLineHeight/2.0))
-        //添加绘制轨迹
-        leftDragLinePath.addLine(to: CGPointMake(leftDragItemMinX + dragItemWidth/2.0 + dragLineWidth/2.0,
-                                                 dragItemHeight/2.0 - dragLineHeight/2.0))
-        //添加绘制轨迹
-        leftDragLinePath.addLine(to: CGPointMake(leftDragItemMinX + dragItemWidth/2.0 + dragLineWidth/2.0,
-                                                 dragItemHeight/2.0 + dragLineHeight/2.0))
-        //添加绘制轨迹
-        leftDragLinePath.addLine(to: CGPointMake(leftDragItemMinX + dragItemWidth/2.0 - dragLineWidth/2.0,
-                                                 dragItemHeight/2.0 + dragLineHeight/2.0))
-        
+        leftDragLinePath.addRoundedRect(in: CGRectMake(leftDragItemMinX + dragItemWidth/2.0 - dragLineWidth/2.0,
+                                                       dragItemHeight/2.0 - dragLineHeight/2.0,
+                                                        dragLineWidth, dragLineHeight),
+                                         cornerWidth: 1, cornerHeight: 1)
         //添加绘制轨迹路径
         context.addPath(leftDragLinePath)
         //开始在绘图层绘制图像
@@ -251,39 +229,19 @@ class PEDTVideoProgressDragView: UIView {
         
         
         /* ===================== 右侧拖拽控件 start ===================== */
-        //创建路径
-        let rightDragItemPath = CGMutablePath()
-        //移动到指定位置(设置路径起点)
-        rightDragItemPath.move(to: CGPointMake(rightDragItemMinX, 0))
-        //添加绘制轨迹
-        rightDragItemPath.addLine(to: CGPointMake(rightDragItemMinX + dragItemWidth, 0))
-        //添加绘制轨迹
-        rightDragItemPath.addLine(to: CGPointMake(rightDragItemMinX + dragItemWidth, rect.height))
-        //添加绘制轨迹
-        rightDragItemPath.addLine(to: CGPointMake(rightDragItemMinX, rect.height))
-        
-        //添加绘制轨迹路径
-        context.addPath(rightDragItemPath)
-        context.setFillColor(fillColor)
-        //开始在绘图层绘制图像
+        let rightDragItemPath = UIBezierPath(roundedRect: self.rightDragItem.frame,
+                                            byRoundingCorners: [.topRight, .bottomRight],
+                                            cornerRadii: CGSize(width: cornerRadius, height: cornerRadius))
         context.setBlendMode(.normal)
-        context.fillPath()
-        
+        fillColor.setFill()
+        rightDragItemPath.fill()
         
         //创建路径
         let rightDragLinePath = CGMutablePath()
-        //移动到指定位置(设置路径起点)
-        rightDragLinePath.move(to: CGPointMake(rightDragItemMinX + dragItemWidth/2.0 - dragLineWidth/2.0,
-                                               dragItemHeight/2.0 - dragLineHeight/2.0))
-        //添加绘制轨迹
-        rightDragLinePath.addLine(to: CGPointMake(rightDragItemMinX + dragItemWidth/2.0 + dragLineWidth/2.0,
-                                                  dragItemHeight/2.0 - dragLineHeight/2.0))
-        //添加绘制轨迹
-        rightDragLinePath.addLine(to: CGPointMake(rightDragItemMinX + dragItemWidth/2.0 + dragLineWidth/2.0,
-                                                  dragItemHeight/2.0 + dragLineHeight/2.0))
-        //添加绘制轨迹
-        rightDragLinePath.addLine(to: CGPointMake(rightDragItemMinX + dragItemWidth/2.0 - dragLineWidth/2.0,
-                                                  dragItemHeight/2.0 + dragLineHeight/2.0))
+        rightDragLinePath.addRoundedRect(in: CGRectMake(rightDragItemMinX + dragItemWidth/2.0 - dragLineWidth/2.0,
+                                                        dragItemHeight/2.0 - dragLineHeight/2.0,
+                                                        dragLineWidth, dragLineHeight),
+                                         cornerWidth: 1, cornerHeight: 1)
         //添加绘制轨迹路径
         context.addPath(rightDragLinePath)
         //开始在绘图层绘制图像
@@ -308,7 +266,7 @@ class PEDTVideoProgressDragView: UIView {
         
         //添加绘制轨迹路径
         context.addPath(topBoundaryPath)
-        context.setFillColor(fillColor)
+        context.setFillColor(fillCGColor)
         //开始在绘图层绘制图像
         context.setBlendMode(.normal)
         context.fillPath()
@@ -328,11 +286,13 @@ class PEDTVideoProgressDragView: UIView {
         
         //添加绘制轨迹路径
         context.addPath(bottomBoundaryPath)
-        context.setFillColor(fillColor)
+        context.setFillColor(fillCGColor)
         //开始在绘图层绘制图像
         context.setBlendMode(.normal)
         context.fillPath()
         /* ===================== 底部边界控件 end ===================== */
+        
+
     }
     
 

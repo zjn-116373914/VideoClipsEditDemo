@@ -98,10 +98,10 @@
 		0C85549D290C1440008651F0 /* VideoProgressEditDemo */ = {
 			isa = PBXGroup;
 			children = (
-				0CFBF2273054A2D30039DB99 /* VideoEditTool */,
 				84F443F02BF62D1F00E8CF74 /* Extension */,
 				84164CC02BD60BF9006AB084 /* Resources */,
 				84164CB72BD60967006AB084 /* Header头文件 */,
+				0CFBF2273054A2D30039DB99 /* VideoProgressEdit */,
 				0C85549E290C1440008651F0 /* AppDelegate.swift */,
 				0C8554B2290C1B37008651F0 /* MainViewController.swift */,
 				84B5EE942C748466005F7B8D /* Localizable.strings */,
@@ -113,13 +113,13 @@
 			path = VideoProgressEditDemo;
 			sourceTree = "<group>";
 		};
-		0CFBF2273054A2D30039DB99 /* VideoEditTool */ = {
+		0CFBF2273054A2D30039DB99 /* VideoProgressEdit */ = {
 			isa = PBXGroup;
 			children = (
 				0CFBF22E3054AF4A0039DB99 /* Resources */,
 				0CFBF2283054A2E00039DB99 /* View */,
 			);
-			path = VideoEditTool;
+			path = VideoProgressEdit;
 			sourceTree = "<group>";
 		};
 		0CFBF2283054A2E00039DB99 /* View */ = {
