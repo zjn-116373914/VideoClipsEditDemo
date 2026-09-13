@@ -7,6 +7,7 @@
 
 import UIKit
 
+let VideoName = "VideoSource01.MP4"
 class MainViewController: UIViewController {
     lazy var videoProgressEditBodyView = {
         let myself = PEDTVideoProgressEditBodyView()
@@ -27,9 +28,16 @@ class MainViewController: UIViewController {
             self.videoProgressEditBodyView.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
             self.videoProgressEditBodyView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor, constant: 0),
             self.videoProgressEditBodyView.widthAnchor.constraint(equalToConstant: kScreenWidth),
-            self.videoProgressEditBodyView.heightAnchor.constraint(equalToConstant: 80)
+            self.videoProgressEditBodyView.heightAnchor.constraint(equalToConstant: kScreenWidth + 10 + 80)
         ])
         
+        guard let videoAssetStr = Bundle.main.path(forResource: VideoName, ofType: "") else {
+            return
+        }
+        let videoURL = NSURL(fileURLWithPath: videoAssetStr) as URL
+        self.videoProgressEditBodyView.loadVideoSource(videoURL: videoURL) { sampleBuffer in
+            kLog(sampleBuffer)
+        }
     }
     
     
