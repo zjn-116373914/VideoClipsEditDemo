@@ -51,15 +51,19 @@ class PEDTVideoProgressEditManager: NSObject {
     func decompressionSampleBufferToPixelBuffer(sampleBuffer: CMSampleBuffer) {
         if self.decompressionSession ==  nil {
             let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer)
-            self.decompressionSession = PEDTVideoProgressEditHelper.creatDecompressionSession(formatDescription: formatDescription, decompressionOutputCallback: { [weak self] (_, _, status, _, pixelBuffer, pts, _) in
+            /*
+             decompressionOutputCallback : 视频帧解码完成后的Callback回调函数
+             */
+            self.decompressionSession = PEDTVideoProgressEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, dur) in
                 guard status == noErr,
-                      let pixelBuffer = pixelBuffer else {
+                      let imageBuffer = imageBuffer,
+                      let refCon = outputRefCon else {
                     return
                 }
-                
-                kLog("pixelBuffer = \(pixelBuffer)")
-                //            self.decompressionSampleBufferToPixelBufferCompletionBlock?(pixelBuffer)
-                //                self?.delegate?.decoder(self!, didOutput: pixelBuffer, pts: pts)
+                // 把 void* 转回 Swift 对象
+                let manager = Unmanaged<PEDTVideoProgressEditManager>.fromOpaque(refCon).takeUnretainedValue()
+                let pixelBuffer = imageBuffer as CVPixelBuffer
+                manager.decompressionSampleBufferToPixelBufferCompletionBlock?(pixelBuffer)
             })
         }
         guard let session = self.decompressionSession else {
@@ -72,9 +76,15 @@ class PEDTVideoProgressEditManager: NSObject {
     }
 }
 
+/// 视频进度帧编辑Helper助手类
 class PEDTVideoProgressEditHelper: NSObject {
-    /// 创建解码器
-    static func creatDecompressionSession(formatDescription: CMFormatDescription?, decompressionOutputCallback: VTDecompressionOutputCallback?) -> VTDecompressionSession? {
+    /// 创建视频解码器
+    /// - Parameters:
+    ///   - formatDescription: 创建视频解码器
+    ///   - decompressionOutputCallback: 视频解码成功后的回调
+    ///   - target: 需要回调结果的对象, 一般是self
+    /// - Returns:视频解码器对象
+    static func creatDecompressionSession(formatDescription: CMFormatDescription?, target: NSObject, decompressionOutputCallback: VTDecompressionOutputCallback?) -> VTDecompressionSession? {
         guard let formatDescription = formatDescription else {
             return nil
         }
@@ -89,7 +99,11 @@ class PEDTVideoProgressEditHelper: NSObject {
             kCVPixelBufferMetalCompatibilityKey as String: true
         ]
         
-        var callback = VTDecompressionOutputCallbackRecord(decompressionOutputCallback: decompressionOutputCallback, decompressionOutputRefCon: nil)
+        // 把 self 转成 void*
+        let refCon = UnsafeMutableRawPointer(
+            Unmanaged.passUnretained(target).toOpaque()
+        )
+        var callback = VTDecompressionOutputCallbackRecord(decompressionOutputCallback: decompressionOutputCallback, decompressionOutputRefCon: refCon)
         
         var decompressionSession: VTDecompressionSession?
         let status = VTDecompressionSessionCreate(allocator: kCFAllocatorDefault,

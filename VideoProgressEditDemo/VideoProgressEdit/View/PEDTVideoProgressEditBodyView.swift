@@ -40,6 +40,10 @@ class PEDTVideoProgressEditBodyView: UIView {
     public func loadVideoSource(videoURL: URL) {
         let asset = AVAsset(url: videoURL)
         self.videoProgressEditManager.loadVideoSource(asset: asset)
+        
+        self.videoProgressEditManager.decompressionSampleBufferToPixelBufferCompletionBlock = { outputPixelBuffer in
+            kLog("outputPixelBuffer = \(outputPixelBuffer)")
+        }
         self.videoProgressEditManager.readVideoSource()
     }
     public func readVideoSource() {
