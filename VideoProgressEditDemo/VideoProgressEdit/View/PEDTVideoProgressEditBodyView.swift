@@ -37,15 +37,21 @@ class PEDTVideoProgressEditBodyView: UIView {
     
     /// 加载视频资源
     /// - Parameter videoURL: 资源URL链接
-    public func loadVideoSource(videoURL: URL, readOneFrameCompletion: ((_ sampleBuffer: CMSampleBuffer) -> Void)? = nil) {
-        let avAsset = AVAsset(url: videoURL)
-        PEDTVideoProgressEditHelper.loadVideoSource(asset: avAsset) { sampleBuffer in
-            readOneFrameCompletion?(sampleBuffer)
-        }
+    public func loadVideoSource(videoURL: URL) {
+        let asset = AVAsset(url: videoURL)
+        self.videoProgressEditManager.loadVideoSource(asset: asset)
+        self.videoProgressEditManager.readVideoSource()
+    }
+    public func readVideoSource() {
+        self.videoProgressEditManager.readVideoSource()
     }
     
-    
     // MARK: - ================= Get And Set =================
+    ///
+    lazy var videoProgressEditManager = {
+        let myself = PEDTVideoProgressEditManager()
+        return myself
+    }()
     ///
     lazy var videoPlayImageView = {
         let myself = UIImageView()

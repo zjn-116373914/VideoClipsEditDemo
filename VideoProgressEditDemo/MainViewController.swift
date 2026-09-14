@@ -35,9 +35,7 @@ class MainViewController: UIViewController {
             return
         }
         let videoURL = NSURL(fileURLWithPath: videoAssetStr) as URL
-        self.videoProgressEditBodyView.loadVideoSource(videoURL: videoURL) { sampleBuffer in
-            kLog(sampleBuffer)
-        }
+        self.videoProgressEditBodyView.loadVideoSource(videoURL: videoURL)
     }
     
     
@@ -47,7 +45,7 @@ class MainViewController: UIViewController {
     /// 导航栏[开始]BarItem的响应事件
     /// - Parameter sender: BarItem对象
     @objc func begainBtnAction (sender: UIBarButtonItem) {
-        
+        self.videoProgressEditBodyView.readVideoSource()
     }
     /// 导航栏[返回]BarItem的响应事件
     /// - Parameter sender: BarItem对象
