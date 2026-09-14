@@ -18,10 +18,10 @@ class MainViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         self.customNavigationBar()
-        self.title = NSLocalizedString("首页", comment: "")
         
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: NSLocalizedString("开始", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(begainBtnAction))
-        self.navigationItem.leftBarButtonItem = UIBarButtonItem.init(barButtonSystemItem: UIBarButtonItem.SystemItem.reply, target: self, action: #selector(backBtnAction))
+        let exportNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("导出", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(exportNavBtnItemAction))
+        let cutoutNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("裁剪", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(cutoutNavBtnItemAction))
+        self.navigationItem.rightBarButtonItems = [exportNavBtnItem, cutoutNavBtnItem]
         
         self.view.addSubview(self.videoProgressEditBodyView)
         self.videoProgressEditBodyView.translatesAutoresizingMaskIntoConstraints = false
@@ -49,27 +49,23 @@ class MainViewController: UIViewController {
             self.view.hideToastActivity()
             /* ========== [隐藏]过渡动画,[开启]用户交互 end ==========  */
             
-            guard let firstFrameModel = videoFrameModels.first else {
-                return
-            }
-            self.videoProgressEditBodyView.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: firstFrameModel.pixelBuffer)
         }
     }
     
     
     
     
-
-    /// 导航栏[开始]BarItem的响应事件
+    /// 导航栏[裁剪]BarItem的响应事件
     /// - Parameter sender: BarItem对象
-    @objc func begainBtnAction (sender: UIBarButtonItem) {
-        self.videoProgressEditBodyView.readVideoSource()
-    }
-    /// 导航栏[返回]BarItem的响应事件
-    /// - Parameter sender: BarItem对象
-    @objc func backBtnAction (sender: UIBarButtonItem) {
+    @objc func cutoutNavBtnItemAction (sender: UIBarButtonItem) {
         
     }
+    /// 导航栏[导出]BarItem的响应事件
+    /// - Parameter sender: BarItem对象
+    @objc func exportNavBtnItemAction (sender: UIBarButtonItem) {
+        
+    }
+
     
 }
 

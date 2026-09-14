@@ -40,10 +40,30 @@ class PEDTVideoProgressEditSuperView: UIView {
     public func loadVideoSource(videoURL: URL, decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         let asset = AVAsset(url: videoURL)
         self.videoProgressEditManager.loadVideoSource(asset: asset)
-        self.videoProgressEditManager.readVideoSourceAndDecompression(decompressionCompletionCallback: decompressionCompletionCallback)
-    }
-    public func readVideoSource(decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
-        self.videoProgressEditManager.readVideoSourceAndDecompression(decompressionCompletionCallback: decompressionCompletionCallback)
+        self.videoProgressEditManager.readVideoSourceAndDecompression { [weak self] videoFrameModels in
+            guard let self = self else {
+                return
+            }
+            decompressionCompletionCallback?(videoFrameModels)
+            
+            guard let firstFrameModel = videoFrameModels.first else {
+                return
+            }
+            self.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: firstFrameModel.pixelBuffer)
+        }
+        self.videoProgressEditBottomView.videoProgressDragView.dragItemPanGestureRecognizerCallback = { [weak self] dragItemType, startRatio, endRatio in
+            guard let self = self else {
+                return
+            }
+            
+            var tagetIndex = Int(CGFloat(self.videoProgressEditManager.videoFrameModels.count - 1) * startRatio)
+            if (.right == dragItemType) {
+                tagetIndex = Int(CGFloat(self.videoProgressEditManager.videoFrameModels.count - 1) * endRatio)
+            }
+            let targetFrameModel = self.videoProgressEditManager.videoFrameModels[tagetIndex]
+            
+            self.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
+        }
     }
     
     // MARK: - ================= Get And Set =================

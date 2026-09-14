@@ -104,6 +104,13 @@ class PEDTVideoProgressEditBottomView: UIView {
     }()
 }
 
+/// 视频进度条滑块类型
+enum PEDTVideoProgressDragItemType {
+    /// 左侧滑块
+    case left
+    /// 右侧滑块
+    case right
+}
 class PEDTVideoProgressDragView: UIView {
     static let dragItemWidth = 15.0
     required init?(coder: NSCoder) {
@@ -137,6 +144,48 @@ class PEDTVideoProgressDragView: UIView {
     
     
     // MARK: - ================= Get And Set =================
+    /// 进度条滑块拖动过程的Callback回调事件函数
+    var dragItemPanGestureRecognizerCallback:((_ dragType: PEDTVideoProgressDragItemType, _ startRatio: CGFloat, _ endRatio: CGFloat) -> Void)? = nil
+    /// 开始比例
+    var startRatio = 0.0
+    /// 左侧 进度条滑块
+    lazy var leftDragItem = {
+        let myself = UIView()
+        myself.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(leftDragItemPanGestureRecognizerAction)))
+        return myself
+    }()
+    @objc func leftDragItemPanGestureRecognizerAction(panGesture: UIPanGestureRecognizer) {
+        guard let targetView = panGesture.view else {
+            return
+        }
+        guard let superview = targetView.superview else {
+            return
+        }
+        let pp = panGesture.translation(in: superview)
+        var targetCenterPoint = CGPointMake(targetView.centerX + pp.x, targetView.centerY)
+        
+        let rightDragItemMinX = CGRectGetMinX(self.rightDragItem.frame)
+        let targetViewWidth = targetView.frame.size.width
+        targetCenterPoint.x = max(targetViewWidth/2, targetCenterPoint.x)
+        targetCenterPoint.x = min(rightDragItemMinX - targetViewWidth/2, targetCenterPoint.x)
+        
+        targetView.center = targetCenterPoint
+        panGesture.setTranslation(CGPointZero, in: superview)
+        
+        self.setNeedsDisplay()
+        /* ====================== 计算视频进度条开始位置和结束位置的比例 start ====================== */
+        let startPointX = 0.0 + CGRectGetWidth(self.leftDragItem.frame)
+        let endPointX = CGRectGetWidth(self.frame) - CGRectGetWidth(self.rightDragItem.frame)
+        let targetPointX = CGRectGetMaxX(self.leftDragItem.frame)
+        self.startRatio = (targetPointX - startPointX)/(endPointX - startPointX)
+        /* ====================== 计算视频进度条开始位置和结束位置的比例 end ====================== */
+        //进度条滑块拖动过程的Callback回调事件函数
+        self.dragItemPanGestureRecognizerCallback?(.left, self.startRatio, self.endRatio)
+    }
+    
+    /// 开始比例
+    var endRatio = 1.0
+    /// 右侧 进度条滑块
     lazy var rightDragItem = {
         let myself = UIView()
         myself.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(rightDragItemPanGestureRecognizerAction)))
@@ -162,33 +211,18 @@ class PEDTVideoProgressDragView: UIView {
         panGesture.setTranslation(CGPointZero, in: superview)
         
         self.setNeedsDisplay()
+        /* ====================== 计算视频进度条开始位置和结束位置的比例 start ====================== */
+        let startPointX = 0.0 + CGRectGetWidth(self.leftDragItem.frame)
+        let endPointX = CGRectGetWidth(self.frame) - CGRectGetWidth(self.rightDragItem.frame)
+        let targetPointX = CGRectGetMinX(self.rightDragItem.frame)
+        self.endRatio = (targetPointX - startPointX)/(endPointX - startPointX)
+        /* ====================== 计算视频进度条开始位置和结束位置的比例 end ====================== */
+        //进度条滑块拖动过程的Callback回调事件函数
+        self.dragItemPanGestureRecognizerCallback?(.right, self.startRatio, self.endRatio)
     }
+
     
-    lazy var leftDragItem = {
-        let myself = UIView()
-        myself.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(leftDragItemPanGestureRecognizerAction)))
-        return myself
-    }()
-    @objc func leftDragItemPanGestureRecognizerAction(panGesture: UIPanGestureRecognizer) {
-        guard let targetView = panGesture.view else {
-            return
-        }
-        guard let superview = targetView.superview else {
-            return
-        }
-        let pp = panGesture.translation(in: superview)
-        var targetCenterPoint = CGPointMake(targetView.centerX + pp.x, targetView.centerY)
-        
-        let rightDragItemMinX = CGRectGetMinX(self.rightDragItem.frame)
-        let targetViewWidth = targetView.frame.size.width
-        targetCenterPoint.x = max(targetViewWidth/2, targetCenterPoint.x)
-        targetCenterPoint.x = min(rightDragItemMinX - targetViewWidth/2, targetCenterPoint.x)
-        
-        targetView.center = targetCenterPoint
-        panGesture.setTranslation(CGPointZero, in: superview)
-        
-        self.setNeedsDisplay()
-    }
+
     
     override func draw(_ rect: CGRect) {
         super.draw(rect)
