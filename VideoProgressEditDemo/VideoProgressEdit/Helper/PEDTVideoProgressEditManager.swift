@@ -16,63 +16,62 @@ class PEDTVideoProgressEditManager: NSObject {
         self.asset = asset
     }
     
-    /// 读取Video视频资源文件完成后Block回调函数
-    var readOneFrameToSampleBufferCompletionBlock:((_ sampleBuffer: CMSampleBuffer) -> Void)? = nil
-    /// 读取Video视频资源文件并导出CMSampleBuffer视频帧数据流
-    func readVideoSource() {
-        guard let asset = self.asset else {
-            return
-        }
-        guard let reader = try? AVAssetReader(asset: asset) else {
-            return
-        }
-        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
-            return
-        }
-        let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-        reader.add(output)
-        reader.startReading()
-        
-        while reader.status == .reading {
-            guard let sampleBuffer = output.copyNextSampleBuffer() else {
-                continue
-            }
-            self.readOneFrameToSampleBufferCompletionBlock?(sampleBuffer)
-            ///
-            self.decompressionSampleBufferToPixelBuffer(sampleBuffer: sampleBuffer)
-        }
-    }
-    
+    /// 视频帧Model数据模型的流数组
+    public var videoFrameModels = [PEDTVideoFrameModel]()
+    /// 视频解码器
     private var decompressionSession: VTDecompressionSession?
-    /// 解压CMSampleBuffer完成后Block回调函数
-    var decompressionSampleBufferToPixelBufferCompletionBlock:((_ pixelBuffer: CVPixelBuffer) -> Void)? = nil
-    /// 解压CMSampleBuffer导出CVPixelBuffer图像数据流
-    /// - Parameter sampleBuffer: 视频帧数据流
-    func decompressionSampleBufferToPixelBuffer(sampleBuffer: CMSampleBuffer) {
-        if self.decompressionSession ==  nil {
-            let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer)
-            /*
-             decompressionOutputCallback : 视频帧解码完成后的Callback回调函数
-             */
-            self.decompressionSession = PEDTVideoProgressEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, dur) in
-                guard status == noErr,
-                      let imageBuffer = imageBuffer,
-                      let refCon = outputRefCon else {
-                    return
+    /// 读取Video视频资源,并且Decompression解码视频帧数据
+    func readVideoSourceAndDecompression(decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            guard let asset = self.asset else {
+                return
+            }
+            guard let reader = try? AVAssetReader(asset: asset) else {
+                return
+            }
+            guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+                return
+            }
+            let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
+            reader.add(output)
+            reader.startReading()
+            
+            self.decompressionSession = nil
+            self.videoFrameModels.removeAll()
+            while reader.status == .reading {
+                guard let sampleBuffer = output.copyNextSampleBuffer() else {
+                    continue
                 }
-                // 把 void* 转回 Swift 对象
-                let manager = Unmanaged<PEDTVideoProgressEditManager>.fromOpaque(refCon).takeUnretainedValue()
-                let pixelBuffer = imageBuffer as CVPixelBuffer
-                manager.decompressionSampleBufferToPixelBufferCompletionBlock?(pixelBuffer)
-            })
+                if self.decompressionSession ==  nil {
+                    let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer)
+                    /*
+                     decompressionOutputCallback : 视频帧解码完成后的Callback回调函数
+                     */
+                    self.decompressionSession = PEDTVideoProgressEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, duration) in
+                        guard status == noErr,
+                              let imageBuffer = imageBuffer,
+                              let refCon = outputRefCon else {
+                            return
+                        }
+                        // 把 void* 转回 Swift 对象
+                        let manager = Unmanaged<PEDTVideoProgressEditManager>.fromOpaque(refCon).takeUnretainedValue()
+                        let pixelBuffer = imageBuffer as CVPixelBuffer
+                        manager.videoFrameModels.append(PEDTVideoFrameModel(pixelBuffer: pixelBuffer, pts: pts, duration: duration))
+                    })
+                }
+                guard let session = self.decompressionSession else {
+                    continue
+                }
+                
+                let flags: VTDecodeFrameFlags = []
+                var infoFlags: VTDecodeInfoFlags = []
+                VTDecompressionSessionDecodeFrame(session, sampleBuffer: sampleBuffer, flags: flags, frameRefcon: nil, infoFlagsOut: &infoFlags)
+            }
+            //返回主线程,并给主线程添加任务
+            DispatchQueue.main.async {
+                decompressionCompletionCallback?(self.videoFrameModels)
+            }
         }
-        guard let session = self.decompressionSession else {
-            return
-        }
-        
-        let flags: VTDecodeFrameFlags = []
-        var infoFlags: VTDecodeInfoFlags = []
-        VTDecompressionSessionDecodeFrame(session, sampleBuffer: sampleBuffer, flags: flags, frameRefcon: nil, infoFlagsOut: &infoFlags)
     }
 }
 
@@ -119,4 +118,25 @@ class PEDTVideoProgressEditHelper: NSObject {
         
         return decompressionSession
     }
+    
+    static func imageWithPixelBuffer(pixelBuffer: CVPixelBuffer) -> UIImage? {
+        var cgImage: CGImage?
+        let status = VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
+        guard status == noErr,
+        let resultCGImage = cgImage else {
+            return nil
+        }
+        let resultImage = UIImage(cgImage: resultCGImage)
+        return resultImage
+    }
+}
+
+
+struct PEDTVideoFrameModel {
+    /// 图像数据流
+    let pixelBuffer: CVPixelBuffer
+    /// 视频时间戳
+    let pts: CMTime
+    /// 总时长
+    let duration: CMTime
 }

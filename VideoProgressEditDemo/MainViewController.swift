@@ -6,11 +6,12 @@
 //
 
 import UIKit
+import Toast_Swift
 
 let VideoName = "VideoSource01.MP4"
 class MainViewController: UIViewController {
     lazy var videoProgressEditBodyView = {
-        let myself = PEDTVideoProgressEditBodyView()
+        let myself = PEDTVideoProgressEditSuperView()
         return myself
     }()
     
@@ -31,11 +32,28 @@ class MainViewController: UIViewController {
             self.videoProgressEditBodyView.heightAnchor.constraint(equalToConstant: kScreenWidth + 10 + 80)
         ])
         
+        /* ========== [显示]过渡动画,[关闭]用户交互 start ==========  */
+        kMainWindow?.isUserInteractionEnabled = false
+        self.view.makeToastActivity(.center)
+        /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
         guard let videoAssetStr = Bundle.main.path(forResource: VideoName, ofType: "") else {
             return
         }
         let videoURL = NSURL(fileURLWithPath: videoAssetStr) as URL
-        self.videoProgressEditBodyView.loadVideoSource(videoURL: videoURL)
+        self.videoProgressEditBodyView.loadVideoSource(videoURL: videoURL) { [weak self] videoFrameModels in
+            guard let self = self else {
+                return
+            }
+            /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
+            kMainWindow?.isUserInteractionEnabled = true
+            self.view.hideToastActivity()
+            /* ========== [隐藏]过渡动画,[开启]用户交互 end ==========  */
+            
+            guard let firstFrameModel = videoFrameModels.first else {
+                return
+            }
+            self.videoProgressEditBodyView.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: firstFrameModel.pixelBuffer)
+        }
     }
     
     

@@ -1,5 +1,5 @@
 //
-//  PEDTVideoProgressEditBodyView.swift
+//  PEDTVideoProgressEditSuperView.swift
 //  VideoProgressEditDemo
 //
 //  Created by zjn-apple on 2026/9/13.
@@ -9,7 +9,7 @@
 import UIKit
 import AVFoundation
 
-class PEDTVideoProgressEditBodyView: UIView {
+class PEDTVideoProgressEditSuperView: UIView {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -37,17 +37,13 @@ class PEDTVideoProgressEditBodyView: UIView {
     
     /// 加载视频资源
     /// - Parameter videoURL: 资源URL链接
-    public func loadVideoSource(videoURL: URL) {
+    public func loadVideoSource(videoURL: URL, decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         let asset = AVAsset(url: videoURL)
         self.videoProgressEditManager.loadVideoSource(asset: asset)
-        
-        self.videoProgressEditManager.decompressionSampleBufferToPixelBufferCompletionBlock = { outputPixelBuffer in
-            kLog("outputPixelBuffer = \(outputPixelBuffer)")
-        }
-        self.videoProgressEditManager.readVideoSource()
+        self.videoProgressEditManager.readVideoSourceAndDecompression(decompressionCompletionCallback: decompressionCompletionCallback)
     }
-    public func readVideoSource() {
-        self.videoProgressEditManager.readVideoSource()
+    public func readVideoSource(decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+        self.videoProgressEditManager.readVideoSourceAndDecompression(decompressionCompletionCallback: decompressionCompletionCallback)
     }
     
     // MARK: - ================= Get And Set =================
