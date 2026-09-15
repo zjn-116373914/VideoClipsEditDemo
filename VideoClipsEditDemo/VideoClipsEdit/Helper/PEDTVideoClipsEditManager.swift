@@ -1,6 +1,6 @@
 //
-//  PEDTVideoProgressEditManager.swift
-//  VideoProgressEditDemo
+//  PEDTVideoClipsEditManager.swift
+//  VideoClipsEditDemo
 //
 //  Created by zjn-apple on 2026/9/14.
 //  Copyright © 2026 Artanis Protoss. All rights reserved.
@@ -10,7 +10,7 @@ import UIKit
 import AVFoundation
 import VideoToolbox
 
-class PEDTVideoProgressEditManager: NSObject {
+class PEDTVideoClipsEditManager: NSObject {
     var asset: AVAsset?
     func loadVideoSource(asset: AVAsset) {
         self.asset = asset
@@ -52,14 +52,14 @@ class PEDTVideoProgressEditManager: NSObject {
                     /*
                      decompressionOutputCallback : 视频帧解码完成后的Callback回调函数
                      */
-                    self.decompressionSession = PEDTVideoProgressEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, duration) in
+                    self.decompressionSession = PEDTVideoClipsEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, duration) in
                         guard status == noErr,
                               let imageBuffer = imageBuffer,
                               let refCon = outputRefCon else {
                             return
                         }
                         // 把 void* 转回 Swift 对象
-                        let manager = Unmanaged<PEDTVideoProgressEditManager>.fromOpaque(refCon).takeUnretainedValue()
+                        let manager = Unmanaged<PEDTVideoClipsEditManager>.fromOpaque(refCon).takeUnretainedValue()
                         let pixelBuffer = imageBuffer as CVPixelBuffer
                         manager.videoFrameModels.append(PEDTVideoFrameModel(pixelBuffer: pixelBuffer, pts: pts, duration: duration))
                     })
@@ -194,7 +194,7 @@ class PEDTVideoProgressEditManager: NSObject {
 }
 
 /// 视频进度帧编辑Helper助手类
-class PEDTVideoProgressEditHelper: NSObject {
+class PEDTVideoClipsEditHelper: NSObject {
     /// 创建视频解码器
     /// - Parameters:
     ///   - formatDescription: 创建视频解码器

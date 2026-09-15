@@ -1,5 +1,5 @@
 //
-//  PEDTVideoProgressEditView.swift
+//  PEDTVideoClipsEditView.swift
 //  VideoEditDemo
 //
 //  Created by zjn-apple on 2026/9/12.
@@ -9,7 +9,7 @@
 import UIKit
 
 /// 视频进度编辑器的主体视图
-class PEDTVideoProgressEditBottomView: UIView {
+class PEDTVideoClipsEditBottomView: UIView {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -37,25 +37,25 @@ class PEDTVideoProgressEditBottomView: UIView {
             self.playAndPauseBtn.heightAnchor.constraint(equalToConstant: 40),
         ])
         
-        self.addSubview(self.videoProgressContentView)
-        self.videoProgressContentView.backgroundColor = UIColor.black
-        self.videoProgressContentView.translatesAutoresizingMaskIntoConstraints = false
+        self.addSubview(self.videoClipsContentView)
+        self.videoClipsContentView.backgroundColor = UIColor.black
+        self.videoClipsContentView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            self.videoProgressContentView.topAnchor.constraint(equalTo: self.topAnchor, constant: 15),
-            self.videoProgressContentView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -15),
-            self.videoProgressContentView.leadingAnchor.constraint(equalTo: self.playAndPauseBtn.trailingAnchor, constant: 15),
-            self.videoProgressContentView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -15),
+            self.videoClipsContentView.topAnchor.constraint(equalTo: self.topAnchor, constant: 15),
+            self.videoClipsContentView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -15),
+            self.videoClipsContentView.leadingAnchor.constraint(equalTo: self.playAndPauseBtn.trailingAnchor, constant: 15),
+            self.videoClipsContentView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -15),
         ])
         
-        self.addSubview(self.videoProgressDragView)
-        self.videoProgressDragView.translatesAutoresizingMaskIntoConstraints = false
+        self.addSubview(self.videoClipsDragView)
+        self.videoClipsDragView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            self.videoProgressDragView.topAnchor.constraint(equalTo: self.videoProgressContentView.topAnchor, constant: -5),
-            self.videoProgressDragView.bottomAnchor.constraint(equalTo: self.videoProgressContentView.bottomAnchor, constant: 5),
-            self.videoProgressDragView.leadingAnchor.constraint(equalTo: self.videoProgressContentView.leadingAnchor, constant: -5),
-            self.videoProgressDragView.trailingAnchor.constraint(equalTo: self.videoProgressContentView.trailingAnchor, constant: 5),
+            self.videoClipsDragView.topAnchor.constraint(equalTo: self.videoClipsContentView.topAnchor, constant: -5),
+            self.videoClipsDragView.bottomAnchor.constraint(equalTo: self.videoClipsContentView.bottomAnchor, constant: 5),
+            self.videoClipsDragView.leadingAnchor.constraint(equalTo: self.videoClipsContentView.leadingAnchor, constant: -5),
+            self.videoClipsDragView.trailingAnchor.constraint(equalTo: self.videoClipsContentView.trailingAnchor, constant: 5),
         ])
-        self.videoProgressDragView.backgroundColor = UIColor.clear
+        self.videoClipsDragView.backgroundColor = UIColor.clear
     }
     
 
@@ -81,10 +81,10 @@ class PEDTVideoProgressEditBottomView: UIView {
     /// [播放/暂停]按钮控件
     lazy var  playAndPauseBtn = {
         let myself = UIButton(type: .system)
-        if let icon = UIImage(named: "PEDT_VideoProgressEditBody_PlayBtn_Normal") {
+        if let icon = UIImage(named: "PEDT_VideoClipsEditBody_PlayBtn_Normal") {
             myself.setImage(icon.withRenderingMode(.alwaysOriginal), for: .normal)
         }
-        if let icon = UIImage(named: "PEDT_VideoProgressEditBody_PlayBtn_Selected") {
+        if let icon = UIImage(named: "PEDT_VideoClipsEditBody_PlayBtn_Selected") {
             myself.setImage(icon.withRenderingMode(.alwaysOriginal), for: .selected)
         }
        
@@ -92,26 +92,26 @@ class PEDTVideoProgressEditBottomView: UIView {
     }()
     
     /// 视频进行内容视图
-    lazy var videoProgressContentView = {
+    lazy var videoClipsContentView = {
         let myself = UIView()
         return myself
     }()
     
     /// 视频进度拖拽控件
-    lazy var videoProgressDragView = {
-        let myself = PEDTVideoProgressDragView()
+    lazy var videoClipsDragView = {
+        let myself = PEDTVideoClipsDragView()
         return myself
     }()
 }
 
 /// 视频进度条滑块类型
-enum PEDTVideoProgressDragItemType {
+enum PEDTVideoClipsDragItemType {
     /// 左侧滑块
     case left
     /// 右侧滑块
     case right
 }
-class PEDTVideoProgressDragView: UIView {
+class PEDTVideoClipsDragView: UIView {
     static let dragItemWidth = 15.0
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -130,7 +130,7 @@ class PEDTVideoProgressDragView: UIView {
         }
         self.isFinishedLayout = true
         
-        let dragItemWidth = PEDTVideoProgressDragView.dragItemWidth
+        let dragItemWidth = PEDTVideoClipsDragView.dragItemWidth
         let dragItemHeight = self.frame.size.height
         let superViewWidth = self.frame.size.width
         
@@ -145,7 +145,7 @@ class PEDTVideoProgressDragView: UIView {
     
     // MARK: - ================= Get And Set =================
     /// 进度条滑块拖动过程的Callback回调事件函数
-    var dragItemPanGestureRecognizerCallback:((_ dragType: PEDTVideoProgressDragItemType, _ startRatio: CGFloat, _ endRatio: CGFloat) -> Void)? = nil
+    var dragItemPanGestureRecognizerCallback:((_ dragType: PEDTVideoClipsDragItemType, _ startRatio: CGFloat, _ endRatio: CGFloat) -> Void)? = nil
     /// 开始比例
     @objc dynamic var startRatio = 0.0
     func setStartRatio(value: CGFloat) {
@@ -196,6 +196,16 @@ class PEDTVideoProgressDragView: UIView {
     
     /// 结束比例
     @objc dynamic var endRatio = 1.0
+    func setEndRatio(value: CGFloat) {
+        self.endRatio = value
+        let rightDragItemX = endRatio * (CGRectGetWidth(self.frame) -
+                                         CGRectGetWidth(self.leftDragItem.frame) - CGRectGetWidth(self.rightDragItem.frame)) - 0.0
+        self.rightDragItem.frame = CGRectMake(rightDragItemX,
+                                             self.rightDragItem.frame.origin.y,
+                                             self.rightDragItem.frame.size.width,
+                                             self.rightDragItem.frame.size.height)
+        self.setNeedsDisplay()
+    }
     /// 右侧 进度条滑块
     lazy var rightDragItem = {
         let myself = UIView()
@@ -241,7 +251,7 @@ class PEDTVideoProgressDragView: UIView {
             return
         }
         
-        let dragItemWidth = PEDTVideoProgressDragView.dragItemWidth
+        let dragItemWidth = PEDTVideoClipsDragView.dragItemWidth
         let dragItemHeight = rect.height
         let dragLineWidth = 2.0
         let dragLineHeight = rect.height * 0.3
