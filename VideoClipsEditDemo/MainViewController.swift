@@ -26,7 +26,7 @@ class MainViewController: UIViewController {
         self.view.addSubview(self.videoClipsEditSuperView)
         self.videoClipsEditSuperView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            self.videoClipsEditSuperView.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            self.videoClipsEditSuperView.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: 10),
             self.videoClipsEditSuperView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor, constant: 0),
             self.videoClipsEditSuperView.widthAnchor.constraint(equalToConstant: kScreenWidth),
             self.videoClipsEditSuperView.heightAnchor.constraint(equalToConstant: kScreenWidth + 10 + 80)
@@ -51,9 +51,6 @@ class MainViewController: UIViewController {
             
         }
     }
-    
-    
-    
     
     /// 导航栏[裁剪]BarItem的响应事件
     /// - Parameter sender: BarItem对象

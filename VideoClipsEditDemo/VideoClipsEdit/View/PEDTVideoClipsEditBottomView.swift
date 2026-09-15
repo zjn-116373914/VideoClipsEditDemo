@@ -104,13 +104,6 @@ class PEDTVideoClipsEditBottomView: UIView {
     }()
 }
 
-/// 视频进度条滑块类型
-enum PEDTVideoClipsDragItemType {
-    /// 左侧滑块
-    case left
-    /// 右侧滑块
-    case right
-}
 class PEDTVideoClipsDragView: UIView {
     static let dragItemWidth = 15.0
     required init?(coder: NSCoder) {
@@ -144,8 +137,6 @@ class PEDTVideoClipsDragView: UIView {
     
     
     // MARK: - ================= Get And Set =================
-    /// 进度条滑块拖动过程的Callback回调事件函数
-    var dragItemPanGestureRecognizerCallback:((_ dragType: PEDTVideoClipsDragItemType, _ startRatio: CGFloat, _ endRatio: CGFloat) -> Void)? = nil
     /// 开始比例
     @objc dynamic var startRatio = 0.0
     func setStartRatio(value: CGFloat) {
@@ -190,8 +181,6 @@ class PEDTVideoClipsDragView: UIView {
         let targetPointX = CGRectGetMaxX(self.leftDragItem.frame)
         self.startRatio = (targetPointX - startPointX)/(endPointX - startPointX)
         /* ====================== 计算视频进度条开始位置和结束位置的比例 end ====================== */
-        //进度条滑块拖动过程的Callback回调事件函数
-        self.dragItemPanGestureRecognizerCallback?(.left, self.startRatio, self.endRatio)
     }
     
     /// 结束比例
@@ -238,8 +227,6 @@ class PEDTVideoClipsDragView: UIView {
         let targetPointX = CGRectGetMinX(self.rightDragItem.frame)
         self.endRatio = (targetPointX - startPointX)/(endPointX - startPointX)
         /* ====================== 计算视频进度条开始位置和结束位置的比例 end ====================== */
-        //进度条滑块拖动过程的Callback回调事件函数
-        self.dragItemPanGestureRecognizerCallback?(.right, self.startRatio, self.endRatio)
     }
 
     

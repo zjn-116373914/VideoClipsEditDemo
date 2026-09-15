@@ -23,7 +23,9 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoPlayImageView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
             self.videoPlayImageView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0),
         ])
-        self.videoPlayImageView.backgroundColor = UIColor.red
+        self.videoPlayImageView.backgroundColor = UIColor.black
+        self.videoPlayImageView.layer.cornerRadius = 10
+        self.videoPlayImageView.clipsToBounds = true
         
         self.addSubview(self.videoClipsEditBottomView)
         self.videoClipsEditBottomView.translatesAutoresizingMaskIntoConstraints = false
