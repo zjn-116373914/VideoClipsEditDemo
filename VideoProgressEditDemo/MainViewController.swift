@@ -26,7 +26,7 @@ class MainViewController: UIViewController {
         self.view.addSubview(self.videoProgressEditSuperView)
         self.videoProgressEditSuperView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            self.videoProgressEditSuperView.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
+            self.videoProgressEditSuperView.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
             self.videoProgressEditSuperView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor, constant: 0),
             self.videoProgressEditSuperView.widthAnchor.constraint(equalToConstant: kScreenWidth),
             self.videoProgressEditSuperView.heightAnchor.constraint(equalToConstant: kScreenWidth + 10 + 80)
@@ -63,9 +63,17 @@ class MainViewController: UIViewController {
     /// 导航栏[导出]BarItem的响应事件
     /// - Parameter sender: BarItem对象
     @objc func exportNavBtnItemAction (sender: UIBarButtonItem) {
+        /* ========== [显示]过渡动画,[关闭]用户交互 start ==========  */
+        kMainWindow?.isUserInteractionEnabled = false
+        self.view.makeToastActivity(.center)
+        /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
         let documentPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
         let outputURL = NSURL(fileURLWithPath: "\(documentPath)/output.mp4") as URL
         self.videoProgressEditSuperView.videoProgressEditManager.exportVideoSource(outputURL: outputURL) { outputURL in
+            /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
+            kMainWindow?.isUserInteractionEnabled = true
+            self.view.hideToastActivity()
+            /* ========== [隐藏]过渡动画,[开启]用户交互 end ==========  */
             kLog(outputURL ?? "")
         }
     }

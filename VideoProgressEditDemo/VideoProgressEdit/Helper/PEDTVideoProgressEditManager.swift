@@ -83,124 +83,112 @@ class PEDTVideoProgressEditManager: NSObject {
     /// 导出视频资源
     /// - Parameter outputURL: 输出视频资源的路径
     func exportVideoSource(outputURL: URL, exportCompletionCallback: ((_ outputPath: URL?) -> Void)? = nil) {
-//        kLog("self.fps = \(self.fps)")
-//        self.fps = 60
-        let videoSourcePath = outputURL.path
-        if (FileManager.default.fileExists(atPath: videoSourcePath) == true) {
-            do {
-                try FileManager.default.removeItem(atPath: videoSourcePath)
-            } catch {
-                print("FileManager.default.removeItem操作失败")
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            let videoSourcePath = outputURL.path
+            if (FileManager.default.fileExists(atPath: videoSourcePath) == true) {
+                do {
+                    try FileManager.default.removeItem(atPath: videoSourcePath)
+                } catch {
+                    print("FileManager.default.removeItem操作失败")
+                }
             }
-        }
-        print("FileManager.default.fileExists : \(FileManager.default.fileExists(atPath: videoSourcePath))")
-        
-        guard let firstFrameModel = self.videoFrameModels.first else {
-            exportCompletionCallback?(nil)
-            return
-        }
-        let width = CVPixelBufferGetWidth(firstFrameModel.pixelBuffer)
-        let height = CVPixelBufferGetHeight(firstFrameModel.pixelBuffer)
-        let pixelFormat = CVPixelBufferGetPixelFormatType(firstFrameModel.pixelBuffer)
-        
-//        let outputURL = NSURL(fileURLWithPath: videoSourcePath) as URL
-        guard let assetWriter = try? AVAssetWriter(outputURL: outputURL, fileType: .mp4) else {
-            exportCompletionCallback?(nil)
-            return
-        }
-        let videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: width,
-            AVVideoHeightKey: height,
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: width * height * 2, // 按需调
-                AVVideoExpectedSourceFrameRateKey: self.fps,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
-            ]
-        ]
-        
-        let videoInput = AVAssetWriterInput(
-            mediaType: .video,
-            outputSettings: videoSettings
-        )
-        videoInput.expectsMediaDataInRealTime = false
-        
-        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: videoInput,
-            sourcePixelBufferAttributes: [
-                kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
-                kCVPixelBufferWidthKey as String: width,
-                kCVPixelBufferHeightKey as String: height,
-                kCVPixelBufferIOSurfacePropertiesKey as String: [:] // 真机必须
-            ]
-        )
-        
-        assetWriter.add(videoInput)
-        assetWriter.startWriting()
-        assetWriter.startSession(atSourceTime: .zero)
-        
-        var frameIndex = 0
-        videoInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)")) { [weak videoInput] in
-            guard let videoInput = videoInput else {
+            
+            guard let firstFrameModel = self.videoFrameModels.first else {
+                exportCompletionCallback?(nil)
                 return
             }
-            while videoInput.isReadyForMoreMediaData {
-                if (frameIndex >= self.videoFrameModels.count) {
-                    videoInput.markAsFinished()
-                    assetWriter.finishWriting {
-                        if assetWriter.status == .completed {
-                            print("视频写完了 ✅", videoSourcePath)
-                            exportCompletionCallback?(outputURL)
-                        } else if let error = assetWriter.error {
-                            exportCompletionCallback?(nil)
-                            print("写入失败 ❌", error, videoSourcePath)
-                        }
+            let width = CVPixelBufferGetWidth(firstFrameModel.pixelBuffer)
+            let height = CVPixelBufferGetHeight(firstFrameModel.pixelBuffer)
+            let pixelFormat = CVPixelBufferGetPixelFormatType(firstFrameModel.pixelBuffer)
+            
+            guard let assetWriter = try? AVAssetWriter(outputURL: outputURL, fileType: .mp4) else {
+                exportCompletionCallback?(nil)
+                return
+            }
+            let videoSettings: [String: Any] = [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: width,
+                AVVideoHeightKey: height,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoAverageBitRateKey: width * height * 2, // 按需调
+                    AVVideoExpectedSourceFrameRateKey: self.fps,
+                    AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                ]
+            ]
+            
+            let videoInput = AVAssetWriterInput(
+                mediaType: .video,
+                outputSettings: videoSettings
+            )
+            videoInput.expectsMediaDataInRealTime = false
+            
+            let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+                assetWriterInput: videoInput,
+                sourcePixelBufferAttributes: [
+                    kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
+                    kCVPixelBufferWidthKey as String: width,
+                    kCVPixelBufferHeightKey as String: height,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:] // 真机必须
+                ]
+            )
+            
+            assetWriter.add(videoInput)
+            assetWriter.startWriting()
+            assetWriter.startSession(atSourceTime: .zero)
+            
+            DispatchQueue.main.async {
+                var frameIndex = 0
+                videoInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_requestMediaDataWhenReady()")) { [weak videoInput] in
+                    guard let videoInput = videoInput else {
+                        return
                     }
-                    return
-                }
-                
-                let videoFrameModel = self.videoFrameModels[frameIndex]
-                let timescale: CMTimeScale = CMTimeScale(self.fps)
-                let pts = CMTime(
-                    value: Int64(frameIndex),
-                    timescale: timescale
-                )
-                
-                let isSuccess = adaptor.append(videoFrameModel.pixelBuffer, withPresentationTime: pts)
-                if (isSuccess == false) {
-                    videoInput.markAsFinished()
-                    assetWriter.finishWriting {
-                        if assetWriter.status == .completed {
-                            print("视频写完了 ✅", videoSourcePath)
-                            exportCompletionCallback?(outputURL)
-                        } else if let error = assetWriter.error {
-                            exportCompletionCallback?(nil)
-                            print("写入失败 ❌", error, videoSourcePath)
+                    while videoInput.isReadyForMoreMediaData {
+                        if (frameIndex >= self.videoFrameModels.count) {
+                            videoInput.markAsFinished()
+                            assetWriter.finishWriting {
+                                if assetWriter.status == .completed {
+                                    DispatchQueue.main.async {
+                                        exportCompletionCallback?(outputURL)
+                                    }
+                                } else if let error = assetWriter.error {
+                                    DispatchQueue.main.async {
+                                        exportCompletionCallback?(outputURL)
+                                    }
+                                    print("写入失败 ❌", error, videoSourcePath)
+                                }
+                            }
+                            return
                         }
+                        
+                        let videoFrameModel = self.videoFrameModels[frameIndex]
+                        let timescale: CMTimeScale = CMTimeScale(self.fps)
+                        let pts = CMTime(
+                            value: Int64(frameIndex),
+                            timescale: timescale
+                        )
+                        
+                        let isSuccess = adaptor.append(videoFrameModel.pixelBuffer, withPresentationTime: pts)
+                        if (isSuccess == false) {
+                            videoInput.markAsFinished()
+                            assetWriter.finishWriting {
+                                if assetWriter.status == .completed {
+                                    DispatchQueue.main.async {
+                                        exportCompletionCallback?(outputURL)
+                                    }
+                                } else if let error = assetWriter.error {
+                                    DispatchQueue.main.async {
+                                        exportCompletionCallback?(outputURL)
+                                    }
+                                    print("写入失败 ❌", error, videoSourcePath)
+                                }
+                            }
+                            return
+                        }
+                        frameIndex = frameIndex + 1
                     }
-                    return
                 }
-                frameIndex = frameIndex + 1
             }
         }
-        
-//        for videoFrameModel in self.videoFrameModels {
-//            adaptor.append(videoFrameModel.pixelBuffer, withPresentationTime: videoFrameModel.pts)
-//            while videoInput.isReadyForMoreMediaData == false {
-//            }
-//            adaptor.append(<#T##pixelBuffer: CVPixelBuffer##CVPixelBuffer#>, withPresentationTime: <#T##CMTime#>)
-//        }
-//        guard let lastVideoFrameModel = self.videoFrameModels.last else {
-//            exportCompletionCallback?(nil)
-//            return
-//        }
-        
-        
-//        videoInput.markAsFinished()
-//        assetWriter.endSession(atSourceTime: CMTimeAdd(
-//            lastVideoFrameModel.pts, lastVideoFrameModel.duration // 视频总时长 = 最后一帧 + 一帧时长
-//        ))
-
     }
 }
 
