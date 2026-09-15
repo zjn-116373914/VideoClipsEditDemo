@@ -190,6 +190,7 @@ class PEDTVideoProgressEditManager: NSObject {
             }
         }
     }
+    
 }
 
 /// 视频进度帧编辑Helper助手类

@@ -147,7 +147,18 @@ class PEDTVideoProgressDragView: UIView {
     /// 进度条滑块拖动过程的Callback回调事件函数
     var dragItemPanGestureRecognizerCallback:((_ dragType: PEDTVideoProgressDragItemType, _ startRatio: CGFloat, _ endRatio: CGFloat) -> Void)? = nil
     /// 开始比例
-    var startRatio = 0.0
+    @objc dynamic var startRatio = 0.0
+    func setStartRatio(value: CGFloat) {
+        self.startRatio = value
+        let leftDragItemX = startRatio * (CGRectGetWidth(self.frame) -
+                                          CGRectGetWidth(self.leftDragItem.frame) - CGRectGetWidth(self.rightDragItem.frame)) - CGRectGetWidth(self.leftDragItem.frame)
+        self.leftDragItem.frame = CGRectMake(leftDragItemX,
+                                             self.leftDragItem.frame.origin.y,
+                                             self.leftDragItem.frame.size.width,
+                                             self.leftDragItem.frame.size.height)
+        self.setNeedsDisplay()
+    }
+    
     /// 左侧 进度条滑块
     lazy var leftDragItem = {
         let myself = UIView()
@@ -183,8 +194,8 @@ class PEDTVideoProgressDragView: UIView {
         self.dragItemPanGestureRecognizerCallback?(.left, self.startRatio, self.endRatio)
     }
     
-    /// 开始比例
-    var endRatio = 1.0
+    /// 结束比例
+    @objc dynamic var endRatio = 1.0
     /// 右侧 进度条滑块
     lazy var rightDragItem = {
         let myself = UIView()

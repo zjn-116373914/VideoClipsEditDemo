@@ -33,6 +33,31 @@ class PEDTVideoProgressEditSuperView: UIView {
             self.videoProgressEditBottomView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
             self.videoProgressEditBottomView.heightAnchor.constraint(equalToConstant: 80.0)
         ])
+        
+        self.videoProgressStartRatioObservation = self.videoProgressEditBottomView.videoProgressDragView.observe(\.startRatio, options: [.new, .old], changeHandler: { [weak self] sender, change in
+            guard let self = self else {
+                return
+            }
+            guard let startRatio = change.newValue else {
+                return
+            }
+            let tagetIndex = Int(CGFloat(self.videoProgressEditManager.videoFrameModels.count - 1) * startRatio)
+            let targetFrameModel = self.videoProgressEditManager.videoFrameModels[tagetIndex]
+            self.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
+        })
+        
+        self.videoProgressEndRatioObservation = self.videoProgressEditBottomView.videoProgressDragView.observe(\.endRatio, options: [.new, .old], changeHandler: { [weak self] sender, change in
+            guard let self = self else {
+                return
+            }
+            guard let endRatio = change.newValue else {
+                return
+            }
+            let tagetIndex = Int(CGFloat(self.videoProgressEditManager.videoFrameModels.count - 1) * endRatio)
+            let targetFrameModel = self.videoProgressEditManager.videoFrameModels[tagetIndex]
+            self.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
+        })
+        
     }
     
     /// 加载视频资源
@@ -51,22 +76,23 @@ class PEDTVideoProgressEditSuperView: UIView {
             }
             self.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: firstFrameModel.pixelBuffer)
         }
-        self.videoProgressEditBottomView.videoProgressDragView.dragItemPanGestureRecognizerCallback = { [weak self] dragItemType, startRatio, endRatio in
-            guard let self = self else {
-                return
-            }
-            
-            var tagetIndex = Int(CGFloat(self.videoProgressEditManager.videoFrameModels.count - 1) * startRatio)
-            if (.right == dragItemType) {
-                tagetIndex = Int(CGFloat(self.videoProgressEditManager.videoFrameModels.count - 1) * endRatio)
-            }
-            let targetFrameModel = self.videoProgressEditManager.videoFrameModels[tagetIndex]
-            
-            self.videoPlayImageView.image = PEDTVideoProgressEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
-        }
+    }
+    
+    public func exportVideoSource(outputURL: URL, exportCompletionCallback: ((_ outputPath: URL?) -> Void)? = nil) {
+        self.videoProgressEditManager.exportVideoSource(outputURL: outputURL, exportCompletionCallback: exportCompletionCallback)
+        
+        self.videoProgressEditBottomView.videoProgressDragView.setStartRatio(value: 0.5)
+    }
+    
+    public func cropVideoClips() {
+        
     }
     
     // MARK: - ================= Get And Set =================
+    /// self.videoProgressEditBottomView.videoProgressDragView.startRatio的监听对象
+    var videoProgressStartRatioObservation: NSKeyValueObservation?
+    /// self.videoProgressEditBottomView.videoProgressDragView.endRatio的监听对象
+    var videoProgressEndRatioObservation: NSKeyValueObservation?
     ///
     lazy var videoProgressEditManager = {
         let myself = PEDTVideoProgressEditManager()
@@ -84,4 +110,16 @@ class PEDTVideoProgressEditSuperView: UIView {
         let myself = PEDTVideoProgressEditBottomView()
         return myself
     }()
+    
+    
+    deinit {
+        //销毁监听对象
+        if let videoProgressStartRatioObservation = self.videoProgressStartRatioObservation {
+            videoProgressStartRatioObservation.invalidate()
+        }
+        //销毁监听对象
+        if let videoProgressEndRatioObservation = self.videoProgressEndRatioObservation {
+            videoProgressEndRatioObservation.invalidate()
+        }
+    }
 }

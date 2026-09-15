@@ -69,7 +69,7 @@ class MainViewController: UIViewController {
         /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
         let documentPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
         let outputURL = NSURL(fileURLWithPath: "\(documentPath)/output.mp4") as URL
-        self.videoProgressEditSuperView.videoProgressEditManager.exportVideoSource(outputURL: outputURL) { outputURL in
+        self.videoProgressEditSuperView.exportVideoSource(outputURL: outputURL) { outputURL in
             /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
             kMainWindow?.isUserInteractionEnabled = true
             self.view.hideToastActivity()
