@@ -72,7 +72,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 var infoFlags: VTDecodeInfoFlags = []
                 VTDecompressionSessionDecodeFrame(session, sampleBuffer: sampleBuffer, flags: flags, frameRefcon: nil, infoFlagsOut: &infoFlags)
             }
-            //返回主线程,并给主线程添加任务
+
             DispatchQueue.main.async {
                 decompressionCompletionCallback?(self.videoFrameModels)
             }

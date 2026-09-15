@@ -78,15 +78,38 @@ class PEDTVideoClipsEditSuperView: UIView {
         }
     }
     
+    /// 视频资源导出
+    /// - Parameters:
+    ///   - outputURL: 导出路径
+    ///   - exportCompletionCallback: 导出完成后的Callback回调函数
     public func exportVideoSource(outputURL: URL, exportCompletionCallback: ((_ outputPath: URL?) -> Void)? = nil) {
         self.videoClipsEditManager.exportVideoSource(outputURL: outputURL, exportCompletionCallback: exportCompletionCallback)
-        
-//        self.videoClipsEditBottomView.videoClipsDragView.setStartRatio(value: 0.5)
         self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: 0.5)
     }
     
-    public func cropVideoClips() {
-        
+    /// 视频片段剪切
+    public func cropVideoClips(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]?) -> Void)? = nil) {
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            let startRatio = self.videoClipsEditBottomView.videoClipsDragView.startRatio
+            let endRatio = self.videoClipsEditBottomView.videoClipsDragView.endRatio
+            let videoFrameModels = self.videoClipsEditManager.videoFrameModels
+            
+            let startIndex = Int(startRatio * CGFloat(videoFrameModels.count - 1))
+            let endIndex = Int(endRatio * CGFloat(videoFrameModels.count - 1))
+            if (endIndex - startIndex) <= 0 {
+                return
+            }
+            
+            let cacheVideoFrameModels = videoFrameModels[startIndex...endIndex]
+            self.videoClipsEditManager.videoFrameModels.removeAll()
+            self.videoClipsEditManager.videoFrameModels.append(contentsOf: cacheVideoFrameModels)
+            
+            DispatchQueue.main.async {
+                self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: 1.0)
+                self.videoClipsEditBottomView.videoClipsDragView.setStartRatio(value: 0.0)
+                completionCallback?(self.videoClipsEditManager.videoFrameModels)
+            }
+        }
     }
     
     // MARK: - ================= Get And Set =================

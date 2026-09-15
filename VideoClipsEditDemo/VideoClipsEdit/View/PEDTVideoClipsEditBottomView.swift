@@ -151,7 +151,7 @@ class PEDTVideoClipsDragView: UIView {
     func setStartRatio(value: CGFloat) {
         self.startRatio = value
         let leftDragItemX = startRatio * (CGRectGetWidth(self.frame) -
-                                          CGRectGetWidth(self.leftDragItem.frame) - CGRectGetWidth(self.rightDragItem.frame)) - CGRectGetWidth(self.leftDragItem.frame)
+                                          CGRectGetWidth(self.leftDragItem.frame) - CGRectGetWidth(self.rightDragItem.frame)) - CGRectGetWidth(self.leftDragItem.frame) + CGRectGetWidth(self.rightDragItem.frame)
         self.leftDragItem.frame = CGRectMake(leftDragItemX,
                                              self.leftDragItem.frame.origin.y,
                                              self.leftDragItem.frame.size.width,
@@ -199,7 +199,7 @@ class PEDTVideoClipsDragView: UIView {
     func setEndRatio(value: CGFloat) {
         self.endRatio = value
         let rightDragItemX = endRatio * (CGRectGetWidth(self.frame) -
-                                         CGRectGetWidth(self.leftDragItem.frame) - CGRectGetWidth(self.rightDragItem.frame)) - 0.0
+                                         CGRectGetWidth(self.leftDragItem.frame) - CGRectGetWidth(self.rightDragItem.frame)) + CGRectGetWidth(self.leftDragItem.frame)
         self.rightDragItem.frame = CGRectMake(rightDragItemX,
                                              self.rightDragItem.frame.origin.y,
                                              self.rightDragItem.frame.size.width,

@@ -20,7 +20,7 @@ class MainViewController: UIViewController {
         self.customNavigationBar()
         
         let exportNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("导出", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(exportNavBtnItemAction))
-        let cutoutNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("裁剪", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(cutoutNavBtnItemAction))
+        let cutoutNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("剪切", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(cutoutNavBtnItemAction))
         self.navigationItem.rightBarButtonItems = [exportNavBtnItem, cutoutNavBtnItem]
         
         self.view.addSubview(self.videoClipsEditSuperView)
@@ -58,7 +58,16 @@ class MainViewController: UIViewController {
     /// 导航栏[裁剪]BarItem的响应事件
     /// - Parameter sender: BarItem对象
     @objc func cutoutNavBtnItemAction (sender: UIBarButtonItem) {
-        
+        /* ========== [显示]过渡动画,[关闭]用户交互 start ==========  */
+        kMainWindow?.isUserInteractionEnabled = false
+        self.view.makeToastActivity(.center)
+        /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
+        self.videoClipsEditSuperView.cropVideoClips { videoFrameModels in
+            /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
+            kMainWindow?.isUserInteractionEnabled = true
+            self.view.hideToastActivity()
+            /* ========== [隐藏]过渡动画,[开启]用户交互 end ==========  */
+        }
     }
     /// 导航栏[导出]BarItem的响应事件
     /// - Parameter sender: BarItem对象
