@@ -133,7 +133,7 @@ class PEDTVideoClipsEditSuperView: UIView {
     
     ///
     lazy var videoClipsEditBottomView = {
-        let myself = PEDTVideoClipsEditBottomView()
+        let myself = PEDTVideoClipsBottomSuperView()
         return myself
     }()
     

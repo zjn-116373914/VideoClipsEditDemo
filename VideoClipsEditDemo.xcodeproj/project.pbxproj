@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0C224749305A149500D17BD0 /* PEDTVideoClipsDragView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C224748305A149500D17BD0 /* PEDTVideoClipsDragView.swift */; };
 		0C28B8003056144C00F372AB /* VideoSource01.MP4 in Resources */ = {isa = PBXBuildFile; fileRef = 0C28B7FF3056144C00F372AB /* VideoSource01.MP4 */; };
 		0C34517B30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C34517A30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift */; };
 		0C85549F290C1440008651F0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C85549E290C1440008651F0 /* AppDelegate.swift */; };
@@ -14,7 +15,7 @@
 		0C8554AB290C1441008651F0 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0C8554A9290C1441008651F0 /* LaunchScreen.storyboard */; };
 		0C8554B3290C1B37008651F0 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C8554B2290C1B37008651F0 /* MainViewController.swift */; };
 		0CCA558430574F920065F5A0 /* PEDTVideoClipsEditManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA558330574F920065F5A0 /* PEDTVideoClipsEditManager.swift */; };
-		0CFBF22C3054A66B0039DB99 /* PEDTVideoClipsEditBottomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFBF22B3054A66B0039DB99 /* PEDTVideoClipsEditBottomView.swift */; };
+		0CFBF22C3054A66B0039DB99 /* PEDTVideoClipsBottomSuperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFBF22B3054A66B0039DB99 /* PEDTVideoClipsBottomSuperView.swift */; };
 		0CFBF2393054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0CFBF2383054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@3x.png */; };
 		0CFBF23A3054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0CFBF2373054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@2x.png */; };
 		0CFBF23D3054B2670039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Normal@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0CFBF23B3054B2670039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Normal@2x.png */; };
@@ -32,6 +33,7 @@
 /* Begin PBXFileReference section */
 		04BBA91887D4B651964397FD /* Pods-SimpleSwiftProgram.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SimpleSwiftProgram.debug.xcconfig"; path = "Target Support Files/Pods-SimpleSwiftProgram/Pods-SimpleSwiftProgram.debug.xcconfig"; sourceTree = "<group>"; };
 		08E92CB0CDF739591C3F8A4A /* Pods_VideoClipsEditDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_VideoClipsEditDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C224748305A149500D17BD0 /* PEDTVideoClipsDragView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsDragView.swift; sourceTree = "<group>"; };
 		0C28B7FF3056144C00F372AB /* VideoSource01.MP4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = VideoSource01.MP4; sourceTree = "<group>"; };
 		0C34517A30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsEditSuperView.swift; sourceTree = "<group>"; };
 		0C85549B290C1440008651F0 /* VideoClipsEditDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VideoClipsEditDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -41,7 +43,7 @@
 		0C8554AC290C1441008651F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0C8554B2290C1B37008651F0 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		0CCA558330574F920065F5A0 /* PEDTVideoClipsEditManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsEditManager.swift; sourceTree = "<group>"; };
-		0CFBF22B3054A66B0039DB99 /* PEDTVideoClipsEditBottomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsEditBottomView.swift; sourceTree = "<group>"; };
+		0CFBF22B3054A66B0039DB99 /* PEDTVideoClipsBottomSuperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsBottomSuperView.swift; sourceTree = "<group>"; };
 		0CFBF2373054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "PEDT_VideoClipsEditBody_PlayBtn_Selected@2x.png"; sourceTree = "<group>"; };
 		0CFBF2383054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "PEDT_VideoClipsEditBody_PlayBtn_Selected@3x.png"; sourceTree = "<group>"; };
 		0CFBF23B3054B2670039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Normal@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "PEDT_VideoClipsEditBody_PlayBtn_Normal@2x.png"; sourceTree = "<group>"; };
@@ -85,6 +87,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0C224747305A13FD00D17BD0 /* VideoClipsBottomView */ = {
+			isa = PBXGroup;
+			children = (
+				0CFBF22B3054A66B0039DB99 /* PEDTVideoClipsBottomSuperView.swift */,
+				0C224748305A149500D17BD0 /* PEDTVideoClipsDragView.swift */,
+			);
+			path = VideoClipsBottomView;
+			sourceTree = "<group>";
+		};
 		0C28B8013056170B00F372AB /* Helper */ = {
 			isa = PBXGroup;
 			children = (
@@ -142,8 +153,8 @@
 		0CFBF2283054A2E00039DB99 /* View */ = {
 			isa = PBXGroup;
 			children = (
+				0C224747305A13FD00D17BD0 /* VideoClipsBottomView */,
 				0C34517A30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift */,
-				0CFBF22B3054A66B0039DB99 /* PEDTVideoClipsEditBottomView.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -345,11 +356,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				84F443F62BF62D4200E8CF74 /* UIColor+RCColor.m in Sources */,
+				0C224749305A149500D17BD0 /* PEDTVideoClipsDragView.swift in Sources */,
 				84164CBB2BD609D0006AB084 /* TSFrameworksHeader.swift in Sources */,
 				0C85549F290C1440008651F0 /* AppDelegate.swift in Sources */,
 				84164CB92BD60996006AB084 /* TSPrefixHeader.swift in Sources */,
 				0CCA558430574F920065F5A0 /* PEDTVideoClipsEditManager.swift in Sources */,
-				0CFBF22C3054A66B0039DB99 /* PEDTVideoClipsEditBottomView.swift in Sources */,
+				0CFBF22C3054A66B0039DB99 /* PEDTVideoClipsBottomSuperView.swift in Sources */,
 				84B5EEA02C749230005F7B8D /* SPViewController+General.swift in Sources */,
 				0C34517B30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift in Sources */,
 				84F443F32BF62D3300E8CF74 /* UIView+Layout.m in Sources */,
