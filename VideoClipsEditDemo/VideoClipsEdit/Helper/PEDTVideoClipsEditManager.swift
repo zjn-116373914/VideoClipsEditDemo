@@ -257,38 +257,37 @@ class PEDTVideoClipsEditHelper: NSObject {
         ]
         return CIContext(options: opts)
     }()
-    static func resizePixelBuffer(_ src: CVPixelBuffer,
-                                  targetWidth: Int,
-                                  targetHeight: Int,
-                                  mode: UIView.ContentMode = .scaleAspectFill) -> CVPixelBuffer? {
+    static func resizePixelBuffer(_ pixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFit) -> CVPixelBuffer? {
     
-        let ci = CIImage(cvPixelBuffer: src)
-        let srcW = CGFloat(CVPixelBufferGetWidth(src))
-        let srcH = CGFloat(CVPixelBufferGetHeight(src))
+        let coreImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
+        let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
         
-        let scaleX = CGFloat(targetWidth) / srcW
-        let scaleY = CGFloat(targetHeight) / srcH
+        let scaleX = CGFloat(width) / pixelBufferWidth
+        let scaleY = CGFloat(height) / pixelBufferHeight
         
-        let scale: CGFloat
-        switch mode {
+        var scale = 1.0 as CGFloat
+        switch contentMode {
         case .scaleAspectFill: scale = max(scaleX, scaleY)
+            break
         case .scaleAspectFit:  scale = min(scaleX, scaleY)
-        case .scaleToFill:    scale = scaleX // 宽高分别缩，这里先统一 scale 再补
             break
         default:
-            scale = 1.0
             break
         }
-        
+
         // 1) scale
-        let scaled = ci.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        var scaledCoreImage = coreImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        if (.scaleToFill == contentMode) {
+            scaledCoreImage = coreImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+        }
         
         // 2) 裁剪到目标尺寸（居中）
-        let cropX = (scaled.extent.width - CGFloat(targetWidth)) / 2
-        let cropY = (scaled.extent.height - CGFloat(targetHeight)) / 2
-        let cropped = scaled.cropped(to: CGRect(x: cropX, y: cropY,
-                                                 width: CGFloat(targetWidth),
-                                                 height: CGFloat(targetHeight)))
+        let cropX = (scaledCoreImage.extent.width - CGFloat(width)) / 2
+        let cropY = (scaledCoreImage.extent.height - CGFloat(height)) / 2
+        let cropped = scaledCoreImage.cropped(to: CGRect(x: cropX, y: cropY,
+                                                 width: CGFloat(width),
+                                                 height: CGFloat(height)))
         
         // 3) 创建目标 buffer —— 用 Metal 兼容格式
         var dst: CVPixelBuffer?
@@ -300,7 +299,7 @@ class PEDTVideoClipsEditHelper: NSObject {
         ]
         let status = CVPixelBufferCreate(
             nil,
-            targetWidth, targetHeight,
+            width, height,
             kCVPixelFormatType_32BGRA,   // 或保持原格式
             attrs as CFDictionary,
             &dst

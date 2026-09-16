@@ -83,7 +83,7 @@ class PEDTVideoClipsEditSuperView: UIView {
             let step = Int(videoFrameModels.count/maxCount)
             for index in stride(from: 0, through: videoFrameModels.count - 1, by: step) {
                 let videoFrameModel = videoFrameModels[index]
-                let smallPixelBuffer = PEDTVideoClipsEditHelper.resizePixelBuffer(videoFrameModel.pixelBuffer, targetWidth: 100, targetHeight: 100)
+                let smallPixelBuffer = PEDTVideoClipsEditHelper.resizePixelBuffer(videoFrameModel.pixelBuffer, width: 100, height: 100)
                 guard let smallPixelBuffer = smallPixelBuffer else {
                     continue
                 }
