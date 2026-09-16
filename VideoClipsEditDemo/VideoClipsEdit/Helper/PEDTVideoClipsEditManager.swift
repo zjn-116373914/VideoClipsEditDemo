@@ -17,9 +17,9 @@ class PEDTVideoClipsEditManager: NSObject {
     }
     
     /// 视频帧Model数据模型的流数组
-    public var videoFrameModels = [PEDTVideoFrameModel]()
+    var videoFrameModels = [PEDTVideoFrameModel]()
     /// 视频帧率
-    public var fps = 0.0 as Float
+    var fps = 0.0 as Float
     
     /// 视频解码器
     private var decompressionSession: VTDecompressionSession?
@@ -257,11 +257,17 @@ class PEDTVideoClipsEditHelper: NSObject {
         ]
         return CIContext(options: opts)
     }()
-    static func resizePixelBuffer(_ pixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFit) -> CVPixelBuffer? {
-    
-        let coreImage = CIImage(cvPixelBuffer: pixelBuffer)
-        let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
-        let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
+    /// 缩放PixelBuffer图形对象并返回UIImage对象
+    /// - Parameters:
+    ///   - inputPixelBuffer: 输入PixelBuffer图形对象
+    ///   - width: 缩放后的宽
+    ///   - height: 缩放后的高
+    ///   - contentMode: 填充模式
+    /// - Returns: UIImage对象
+    static func resizePixelBufferToImage(_ inputPixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFill) -> UIImage? {
+        let coreImage = CIImage(cvPixelBuffer: inputPixelBuffer)
+        let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(inputPixelBuffer))
+        let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(inputPixelBuffer))
         
         let scaleX = CGFloat(width) / pixelBufferWidth
         let scaleY = CGFloat(height) / pixelBufferHeight
@@ -276,21 +282,70 @@ class PEDTVideoClipsEditHelper: NSObject {
             break
         }
 
-        // 1) scale
         var scaledCoreImage = coreImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         if (.scaleToFill == contentMode) {
             scaledCoreImage = coreImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
         }
         
         // 2) 裁剪到目标尺寸（居中）
-        let cropX = (scaledCoreImage.extent.width - CGFloat(width)) / 2
-        let cropY = (scaledCoreImage.extent.height - CGFloat(height)) / 2
-        let cropped = scaledCoreImage.cropped(to: CGRect(x: cropX, y: cropY,
+        let scaledImageWidth = scaledCoreImage.extent.width
+        let scaledImageHeight = scaledCoreImage.extent.height
+        let cropX = (scaledImageWidth - CGFloat(width)) / 2
+        let cropY = (scaledImageHeight - CGFloat(height)) / 2
+        let croppedCoreImage = scaledCoreImage.cropped(to: CGRect(x: cropX, y: cropY,
                                                  width: CGFloat(width),
                                                  height: CGFloat(height)))
+        guard let cgImage = keyContext.createCGImage(croppedCoreImage, from: croppedCoreImage.extent) else {
+            return nil
+        }
         
+        let resultImage = UIImage(cgImage: cgImage)
+        return resultImage
+    }
+    /// 缩放PixelBuffer图形对象
+    /// - Parameters:
+    ///   - inputPixelBuffer: 输入PixelBuffer图形对象
+    ///   - width: 缩放后的宽
+    ///   - height: 缩放后的高
+    ///   - contentMode: 填充模式
+    /// - Returns: PixelBuffer图形对象
+    static func resizePixelBuffer(_ inputPixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFill) -> CVPixelBuffer? {
+        
+        let coreImage = CIImage(cvPixelBuffer: inputPixelBuffer)
+        let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(inputPixelBuffer))
+        let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(inputPixelBuffer))
+        
+        let scaleX = CGFloat(width) / pixelBufferWidth
+        let scaleY = CGFloat(height) / pixelBufferHeight
+        
+        var scale = 1.0 as CGFloat
+        switch contentMode {
+        case .scaleAspectFill: scale = max(scaleX, scaleY)
+            break
+        case .scaleAspectFit:  scale = min(scaleX, scaleY)
+            break
+        default:
+            break
+        }
+
+        var scaledCoreImage = coreImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        if (.scaleToFill == contentMode) {
+            scaledCoreImage = coreImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+        }
+        
+        // 2) 裁剪到目标尺寸（居中）
+        let scaledImageWidth = scaledCoreImage.extent.width
+        let scaledImageHeight = scaledCoreImage.extent.height
+        let cropX = (scaledImageWidth - CGFloat(width)) / 2
+        let cropY = (scaledImageHeight - CGFloat(height)) / 2
+        var croppedCoreImage = scaledCoreImage.cropped(to: CGRect(x: cropX, y: cropY,
+                                                 width: CGFloat(width),
+                                                 height: CGFloat(height)))
+        let tx = -croppedCoreImage.extent.origin.x
+        let ty = -croppedCoreImage.extent.origin.y
+        croppedCoreImage = croppedCoreImage.transformed(by: CGAffineTransform(translationX: tx, y: ty))
         // 3) 创建目标 buffer —— 用 Metal 兼容格式
-        var dst: CVPixelBuffer?
+        var outputPixelBuffer: CVPixelBuffer?
         let attrs: [String: Any] = [
             kCVPixelBufferMetalCompatibilityKey as String: true,
             kCVPixelBufferCGImageCompatibilityKey as String: true,
@@ -302,17 +357,16 @@ class PEDTVideoClipsEditHelper: NSObject {
             width, height,
             kCVPixelFormatType_32BGRA,   // 或保持原格式
             attrs as CFDictionary,
-            &dst
+            &outputPixelBuffer
         )
-        guard status == kCVReturnSuccess, let dst else { return nil }
-        
+        guard status == kCVReturnSuccess, let outputPixelBuffer else {
+            return nil
+        }
         // 4) GPU render —— 关键：用共享的 CIContext，别每次创建
-        keyContext.render(cropped, to: dst)
-        return dst
+        keyContext.render(croppedCoreImage, to: outputPixelBuffer)
+        return outputPixelBuffer
     }
-               
 }
-
 
 struct PEDTVideoFrameModel {
     /// 图像数据流

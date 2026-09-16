@@ -17,7 +17,7 @@ class PEDTVideoClipsContentView: UIView {
         self.backgroundColor = UIColor.black
     }
     // MARK: - ================= Get And Set =================
-    static let imageItemMaxCount = 2
+    static let imageItemMaxCount = 20
     /// 视频片段预览图集合
     var images = [UIImage]() {
         didSet {
@@ -31,7 +31,8 @@ class PEDTVideoClipsContentView: UIView {
             for index in images.indices {
                 let image = images[index]
                 let imageItem = UIImageView(image: image)
-                imageItem.contentMode = .scaleAspectFit
+                imageItem.contentMode = .scaleAspectFill
+                imageItem.clipsToBounds = true
                 self.addSubview(imageItem)
                 imageItem.translatesAutoresizingMaskIntoConstraints = false
                 NSLayoutConstraint.activate([

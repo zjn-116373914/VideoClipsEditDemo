@@ -59,7 +59,6 @@ class PEDTVideoClipsEditSuperView: UIView {
             let targetFrameModel = self.videoClipsEditManager.videoFrameModels[tagetIndex]
             self.videoPlayImageView.image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
         })
-        
     }
     
     /// 加载视频资源
@@ -73,27 +72,10 @@ class PEDTVideoClipsEditSuperView: UIView {
             }
             decompressionCompletionCallback?(videoFrameModels)
             
-            guard let firstFrameModel = videoFrameModels.first else {
-                return
-            }
-            self.videoPlayImageView.image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: firstFrameModel.pixelBuffer)
-            
-            var images = [UIImage]()
-            let maxCount = PEDTVideoClipsContentView.imageItemMaxCount
-            let step = Int(videoFrameModels.count/maxCount)
-            for index in stride(from: 0, through: videoFrameModels.count - 1, by: step) {
-                let videoFrameModel = videoFrameModels[index]
-                let smallPixelBuffer = PEDTVideoClipsEditHelper.resizePixelBuffer(videoFrameModel.pixelBuffer, width: 100, height: 100)
-                guard let smallPixelBuffer = smallPixelBuffer else {
-                    continue
-                }
-                guard let image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: smallPixelBuffer) else {
-                    continue
-                }
-                images.append(image)
-            }
-            self.videoClipsEditBottomView.videoClipsContentView.images.removeAll()
-            self.videoClipsEditBottomView.videoClipsContentView.images.append(contentsOf: images)
+            self.videoClipsEditBottomView.videoClipsDragView.endRatio = 1.0
+            self.videoClipsEditBottomView.videoClipsDragView.startRatio = 0.0
+            //更新 底部视频片段的预览图集合
+            self.reloadVideoClipsPreImages()
         }
 
     }
@@ -127,9 +109,28 @@ class PEDTVideoClipsEditSuperView: UIView {
             DispatchQueue.main.async {
                 self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: 1.0)
                 self.videoClipsEditBottomView.videoClipsDragView.setStartRatio(value: 0.0)
+                self.reloadVideoClipsPreImages()
                 completionCallback?(self.videoClipsEditManager.videoFrameModels)
             }
         }
+    }
+    
+    /// 更新 底部视频片段的预览图集合
+    func reloadVideoClipsPreImages() {
+        var images = [UIImage]()
+        
+        let videoFrameModels = self.videoClipsEditManager.videoFrameModels
+        let maxCount = PEDTVideoClipsContentView.imageItemMaxCount
+        let step = Int(videoFrameModels.count/maxCount)
+        for index in stride(from: 0, through: videoFrameModels.count - 1, by: step) {
+            let videoFrameModel = videoFrameModels[index]
+            guard let smallImage = PEDTVideoClipsEditHelper.resizePixelBufferToImage(videoFrameModel.pixelBuffer, width: 100, height: 100) else {
+                continue
+            }
+            images.append(smallImage)
+        }
+        self.videoClipsEditBottomView.videoClipsContentView.images.removeAll()
+        self.videoClipsEditBottomView.videoClipsContentView.images.append(contentsOf: images)
     }
     
     // MARK: - ================= Get And Set =================
@@ -137,6 +138,7 @@ class PEDTVideoClipsEditSuperView: UIView {
     var videoClipsStartRatioObservation: NSKeyValueObservation?
     /// self.videoClipsEditBottomView.videoClipsDragView.endRatio的监听对象
     var videoClipsEndRatioObservation: NSKeyValueObservation?
+    
     ///
     lazy var videoClipsEditManager = {
         let myself = PEDTVideoClipsEditManager()
