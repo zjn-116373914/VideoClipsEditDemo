@@ -26,8 +26,8 @@ class PEDTVideoClipsContentView: UIView {
             }
             self.subImageItems.removeAll()
             
-            let maxCount = PEDTVideoClipsContentView.imageItemMaxCount
-            let itemWidth = CGRectGetWidth(self.frame)/CGFloat(maxCount)
+            let count = images.count
+            let itemWidth = CGRectGetWidth(self.frame)/CGFloat(count)
             for index in images.indices {
                 let image = images[index]
                 let imageItem = UIImageView(image: image)
