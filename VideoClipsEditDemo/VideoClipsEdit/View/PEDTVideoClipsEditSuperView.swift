@@ -77,7 +77,25 @@ class PEDTVideoClipsEditSuperView: UIView {
                 return
             }
             self.videoPlayImageView.image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: firstFrameModel.pixelBuffer)
+            
+            var images = [UIImage]()
+            let maxCount = PEDTVideoClipsContentView.imageItemMaxCount
+            let step = Int(videoFrameModels.count/maxCount)
+            for index in stride(from: 0, through: videoFrameModels.count - 1, by: step) {
+                let videoFrameModel = videoFrameModels[index]
+                let smallPixelBuffer = PEDTVideoClipsEditHelper.resizePixelBuffer(videoFrameModel.pixelBuffer, targetWidth: 100, targetHeight: 100)
+                guard let smallPixelBuffer = smallPixelBuffer else {
+                    continue
+                }
+                guard let image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: smallPixelBuffer) else {
+                    continue
+                }
+                images.append(image)
+            }
+            self.videoClipsEditBottomView.videoClipsContentView.images.removeAll()
+            self.videoClipsEditBottomView.videoClipsContentView.images.append(contentsOf: images)
         }
+
     }
     
     /// 视频资源导出

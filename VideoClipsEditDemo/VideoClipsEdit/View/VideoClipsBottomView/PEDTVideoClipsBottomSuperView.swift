@@ -38,10 +38,10 @@ class PEDTVideoClipsBottomSuperView: UIView {
         ])
         
         self.addSubview(self.videoClipsContentView)
-        self.videoClipsContentView.backgroundColor = UIColor.black
         self.videoClipsContentView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            self.videoClipsContentView.topAnchor.constraint(equalTo: self.topAnchor, constant: 15),
+            self.videoClipsContentView.centerYAnchor.constraint(equalTo: self.centerYAnchor, constant: 0.0),
+            self.videoClipsContentView.heightAnchor.constraint(equalTo: self.heightAnchor, constant: -30),
             self.videoClipsContentView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -15),
             self.videoClipsContentView.leadingAnchor.constraint(equalTo: self.playAndPauseBtn.trailingAnchor, constant: 15),
             self.videoClipsContentView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -15),
@@ -93,7 +93,7 @@ class PEDTVideoClipsBottomSuperView: UIView {
     
     /// 视频进行内容视图
     lazy var videoClipsContentView = {
-        let myself = UIView()
+        let myself = PEDTVideoClipsContentView()
         return myself
     }()
     

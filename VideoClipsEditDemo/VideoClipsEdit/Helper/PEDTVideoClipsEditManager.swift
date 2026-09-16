@@ -247,6 +247,71 @@ class PEDTVideoClipsEditHelper: NSObject {
         let resultImage = UIImage(cgImage: resultCGImage)
         return resultImage
     }
+    
+    // MARK: - 复用！别每次 new
+    private static let keyContext: CIContext = {
+        // 指定 Metal device，确保走 GPU
+        let opts: [CIContextOption: Any] = [
+            .useSoftwareRenderer: false,
+            .cacheIntermediates: false   // 不缓存中间节点，省内存
+        ]
+        return CIContext(options: opts)
+    }()
+    static func resizePixelBuffer(_ src: CVPixelBuffer,
+                                  targetWidth: Int,
+                                  targetHeight: Int,
+                                  mode: UIView.ContentMode = .scaleAspectFill) -> CVPixelBuffer? {
+    
+        let ci = CIImage(cvPixelBuffer: src)
+        let srcW = CGFloat(CVPixelBufferGetWidth(src))
+        let srcH = CGFloat(CVPixelBufferGetHeight(src))
+        
+        let scaleX = CGFloat(targetWidth) / srcW
+        let scaleY = CGFloat(targetHeight) / srcH
+        
+        let scale: CGFloat
+        switch mode {
+        case .scaleAspectFill: scale = max(scaleX, scaleY)
+        case .scaleAspectFit:  scale = min(scaleX, scaleY)
+        case .scaleToFill:    scale = scaleX // 宽高分别缩，这里先统一 scale 再补
+            break
+        default:
+            scale = 1.0
+            break
+        }
+        
+        // 1) scale
+        let scaled = ci.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        
+        // 2) 裁剪到目标尺寸（居中）
+        let cropX = (scaled.extent.width - CGFloat(targetWidth)) / 2
+        let cropY = (scaled.extent.height - CGFloat(targetHeight)) / 2
+        let cropped = scaled.cropped(to: CGRect(x: cropX, y: cropY,
+                                                 width: CGFloat(targetWidth),
+                                                 height: CGFloat(targetHeight)))
+        
+        // 3) 创建目标 buffer —— 用 Metal 兼容格式
+        var dst: CVPixelBuffer?
+        let attrs: [String: Any] = [
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ]
+        let status = CVPixelBufferCreate(
+            nil,
+            targetWidth, targetHeight,
+            kCVPixelFormatType_32BGRA,   // 或保持原格式
+            attrs as CFDictionary,
+            &dst
+        )
+        guard status == kCVReturnSuccess, let dst else { return nil }
+        
+        // 4) GPU render —— 关键：用共享的 CIContext，别每次创建
+        keyContext.render(cropped, to: dst)
+        return dst
+    }
+               
 }
 
 
