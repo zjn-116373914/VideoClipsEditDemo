@@ -264,7 +264,7 @@ class PEDTVideoClipsEditHelper: NSObject {
     ///   - height: 缩放后的高
     ///   - contentMode: 填充模式
     /// - Returns: UIImage对象
-    static func resizePixelBufferToImage(_ inputPixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFill) -> UIImage? {
+    static func resizePixelBufferToImage(inputPixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFill) -> UIImage? {
         let coreImage = CIImage(cvPixelBuffer: inputPixelBuffer)
         let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(inputPixelBuffer))
         let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(inputPixelBuffer))
@@ -309,8 +309,7 @@ class PEDTVideoClipsEditHelper: NSObject {
     ///   - height: 缩放后的高
     ///   - contentMode: 填充模式
     /// - Returns: PixelBuffer图形对象
-    static func resizePixelBuffer(_ inputPixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFill) -> CVPixelBuffer? {
-        
+    static func resizePixelBuffer(inputPixelBuffer: CVPixelBuffer, width: Int, height: Int, contentMode: UIView.ContentMode = .scaleAspectFill) -> CVPixelBuffer? {
         let coreImage = CIImage(cvPixelBuffer: inputPixelBuffer)
         let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(inputPixelBuffer))
         let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(inputPixelBuffer))
@@ -366,11 +365,48 @@ class PEDTVideoClipsEditHelper: NSObject {
         keyContext.render(croppedCoreImage, to: outputPixelBuffer)
         return outputPixelBuffer
     }
+    
+    static func greyRenderPixelBuffer(inputPixelBuffer: CVPixelBuffer) -> CVPixelBuffer? {
+        let inputCoreImage = CIImage(cvPixelBuffer: inputPixelBuffer)
+        guard let filter = CIFilter(name: "CIColorControls") else {
+            return nil
+        }
+        filter.setValue(inputCoreImage, forKey: kCIInputImageKey)
+//        filter.setValue(0.0, forKey: kCIInputBrightnessKey)
+//        filter.setValue(0.0, forKey: kCIInputContrastKey)
+        filter.setValue(0.0, forKey: kCIInputSaturationKey)
+        
+        guard let outputCoreImage = filter.outputImage else {
+            return nil
+        }
+        
+        // 3) 创建目标 buffer —— 用 Metal 兼容格式
+        var outputPixelBuffer: CVPixelBuffer?
+        let attrs: [String: Any] = [
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferCGImageCompatibilityKey as String: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ]
+        let status = CVPixelBufferCreate(
+            nil,
+            Int(inputCoreImage.extent.width), Int(inputCoreImage.extent.height),
+            kCVPixelFormatType_32BGRA,   // 或保持原格式
+            attrs as CFDictionary,
+            &outputPixelBuffer
+        )
+        guard status == kCVReturnSuccess, let outputPixelBuffer else {
+            return nil
+        }
+        // 4) GPU render —— 关键：用共享的 CIContext，别每次创建
+        keyContext.render(outputCoreImage, to: outputPixelBuffer)
+        return outputPixelBuffer
+    }
 }
 
 struct PEDTVideoFrameModel {
     /// 图像数据流
-    let pixelBuffer: CVPixelBuffer
+    var pixelBuffer: CVPixelBuffer
     /// 视频时间戳
     let pts: CMTime
     /// 总时长

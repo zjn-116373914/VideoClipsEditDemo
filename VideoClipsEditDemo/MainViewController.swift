@@ -21,7 +21,8 @@ class MainViewController: UIViewController {
         
         let exportNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("导出", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(exportNavBtnItemAction))
         let cutoutNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("剪切", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(cutoutNavBtnItemAction))
-        self.navigationItem.rightBarButtonItems = [exportNavBtnItem, cutoutNavBtnItem]
+        let renderNavBtnItem = UIBarButtonItem.init(title: NSLocalizedString("渲染", comment: ""), style: UIBarButtonItem.Style.plain, target: self, action: #selector(renderNavBtnItemAction))
+        self.navigationItem.rightBarButtonItems = [exportNavBtnItem, cutoutNavBtnItem, renderNavBtnItem]
         
         self.view.addSubview(self.videoClipsEditSuperView)
         self.videoClipsEditSuperView.translatesAutoresizingMaskIntoConstraints = false
@@ -50,6 +51,20 @@ class MainViewController: UIViewController {
             /* ========== [隐藏]过渡动画,[开启]用户交互 end ==========  */
             
         }
+    }
+    
+    @objc func renderNavBtnItemAction(sender: UIBarButtonItem) {
+        /* ========== [显示]过渡动画,[关闭]用户交互 start ==========  */
+        kMainWindow?.isUserInteractionEnabled = false
+        self.view.makeToastActivity(.center)
+        /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
+        self.videoClipsEditSuperView.greyRenderVideoClips { videoFrameModels in
+            /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
+            kMainWindow?.isUserInteractionEnabled = true
+            self.view.hideToastActivity()
+            /* ========== [隐藏]过渡动画,[开启]用户交互 end ==========  */
+        }
+        
     }
     
     /// 导航栏[裁剪]BarItem的响应事件

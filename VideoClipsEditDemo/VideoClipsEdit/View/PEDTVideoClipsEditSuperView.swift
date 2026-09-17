@@ -72,10 +72,10 @@ class PEDTVideoClipsEditSuperView: UIView {
             }
             decompressionCompletionCallback?(videoFrameModels)
             
-            self.videoClipsEditBottomView.videoClipsDragView.endRatio = 1.0
-            self.videoClipsEditBottomView.videoClipsDragView.startRatio = 0.0
             //更新 底部视频片段的预览图集合
             self.reloadVideoClipsPreImages()
+            self.videoClipsEditBottomView.videoClipsDragView.endRatio = 1.0
+            self.videoClipsEditBottomView.videoClipsDragView.startRatio = 0.0
         }
 
     }
@@ -86,7 +86,6 @@ class PEDTVideoClipsEditSuperView: UIView {
     ///   - exportCompletionCallback: 导出完成后的Callback回调函数
     public func exportVideoSource(outputURL: URL, exportCompletionCallback: ((_ outputPath: URL?) -> Void)? = nil) {
         self.videoClipsEditManager.exportVideoSource(outputURL: outputURL, exportCompletionCallback: exportCompletionCallback)
-        self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: 0.5)
     }
     
     /// 视频片段剪切
@@ -107,15 +106,50 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoClipsEditManager.videoFrameModels.append(contentsOf: cacheVideoFrameModels)
             
             DispatchQueue.main.async {
+                self.reloadVideoClipsPreImages()
                 self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: 1.0)
                 self.videoClipsEditBottomView.videoClipsDragView.setStartRatio(value: 0.0)
-                self.reloadVideoClipsPreImages()
                 completionCallback?(self.videoClipsEditManager.videoFrameModels)
             }
         }
     }
     
-    /// 更新 底部视频片段的预览图集合
+    func greyRenderVideoClips(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]?) -> Void)? = nil) {
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            let startRatio = self.videoClipsEditBottomView.videoClipsDragView.startRatio
+            let endRatio = self.videoClipsEditBottomView.videoClipsDragView.endRatio
+            var videoFrameModels = self.videoClipsEditManager.videoFrameModels
+            
+            let startIndex = Int(startRatio * CGFloat(videoFrameModels.count - 1))
+            let endIndex = Int(endRatio * CGFloat(videoFrameModels.count - 1))
+            if (endIndex - startIndex) <= 0 {
+                return
+            }
+            
+            for index in startIndex...endIndex {
+                var videoFrameModel = videoFrameModels[index]
+                guard let pixelBuffer = PEDTVideoClipsEditHelper.greyRenderPixelBuffer(inputPixelBuffer: videoFrameModel.pixelBuffer) else {
+                    continue
+                }
+                videoFrameModel.pixelBuffer = pixelBuffer
+                videoFrameModels.replaceSubrange(index...index, with: [videoFrameModel])
+            }
+            self.videoClipsEditManager.videoFrameModels.removeAll()
+            self.videoClipsEditManager.videoFrameModels.append(contentsOf: videoFrameModels)
+            
+            DispatchQueue.main.async {
+                self.reloadVideoClipsPreImages()
+                let endRatio = self.videoClipsEditBottomView.videoClipsDragView.endRatio
+                self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: endRatio)
+                let startRatio = self.videoClipsEditBottomView.videoClipsDragView.startRatio
+                self.videoClipsEditBottomView.videoClipsDragView.setStartRatio(value: startRatio)
+                
+                completionCallback?(self.videoClipsEditManager.videoFrameModels)
+            }
+        }
+    }
+    
+    /// 更新 底部视频片段的预览图集合(数组更新不建议用KVO, 因为每次Add都会调用刷新界面的事件,增加CPU负担,也影响用户体验)
     func reloadVideoClipsPreImages() {
         var images = [UIImage]()
         
@@ -124,7 +158,7 @@ class PEDTVideoClipsEditSuperView: UIView {
         let step = Int(videoFrameModels.count/maxCount)
         for index in stride(from: 0, through: videoFrameModels.count - 1, by: step) {
             let videoFrameModel = videoFrameModels[index]
-            guard let smallImage = PEDTVideoClipsEditHelper.resizePixelBufferToImage(videoFrameModel.pixelBuffer, width: 100, height: 100) else {
+            guard let smallImage = PEDTVideoClipsEditHelper.resizePixelBufferToImage(inputPixelBuffer: videoFrameModel.pixelBuffer, width: 100, height: 100) else {
                 continue
             }
             images.append(smallImage)
