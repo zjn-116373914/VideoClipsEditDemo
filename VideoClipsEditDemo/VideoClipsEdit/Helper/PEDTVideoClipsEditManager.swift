@@ -11,6 +11,19 @@ import AVFoundation
 import VideoToolbox
 
 class PEDTVideoClipsEditManager: NSObject {
+    let audioSettings = [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVSampleRateKey: 44100.0,
+        AVNumberOfChannelsKey: 2,
+        AVLinearPCMBitDepthKey: 32,
+        AVLinearPCMIsFloatKey: true,
+        AVLinearPCMIsBigEndianKey: false
+    ] as [String : Any]
+    
+    let videoSettings = [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+    ] as [String : Any]
+    
     var asset: AVAsset?
     func loadVideoSource(asset: AVAsset) {
         self.asset = asset
@@ -18,13 +31,75 @@ class PEDTVideoClipsEditManager: NSObject {
     
     /// 视频帧Model数据模型的流数组
     var videoFrameModels = [PEDTVideoFrameModel]()
+    func getIndexOfVideoFrameModel(pts: CMTime) -> Int {
+        for index in self.videoFrameModels.indices {
+            let videoFrameModel = self.videoFrameModels[index]
+            if (pts == videoFrameModel.pts) {
+                return index
+            }
+        }
+        
+        return -1
+    }
     /// 视频帧率
     var fps = 0.0 as Float
+
+    
+    
+    /// 读取Video视频资源并且Decode解码视频帧
+    func readVideoSourceAndDecodeToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            guard let asset = self.asset else {
+                return
+            }
+            guard let assetReader = try? AVAssetReader(asset: asset) else {
+                return
+            }
+            guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+                return
+            }
+            
+            self.fps = videoTrack.nominalFrameRate
+            
+            let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoSettings)
+            guard assetReader.canAdd(videoOutput) else {
+                return
+            }
+            assetReader.add(videoOutput)
+            assetReader.startReading()
+            
+            self.videoFrameModels.removeAll()
+            while (.reading == assetReader.status) {
+                guard let sampleBuffer = videoOutput.copyNextSampleBuffer() else {
+                    continue
+                }
+                guard CMSampleBufferIsValid(sampleBuffer) else {
+                    continue
+                }
+                guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                    continue
+                }
+                let pixelBuffer = imageBuffer as CVPixelBuffer
+                let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                let duration = CMSampleBufferGetDuration(sampleBuffer)
+                
+                let videoFrameModel = PEDTVideoFrameModel(pixelBuffer: pixelBuffer, pts: pts, duration: duration)
+                self.videoFrameModels.append(videoFrameModel)
+            }
+
+            if (.completed == assetReader.status) {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+            }
+
+        }
+    }
     
     /// 视频解码器
     private var decompressionSession: VTDecompressionSession?
     /// 读取Video视频资源,并且Decompression解码视频帧数据
-    func readVideoSourceAndDecompression(decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+    func readVideoSourceAndDecompressionToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.asset else {
                 return
@@ -37,14 +112,20 @@ class PEDTVideoClipsEditManager: NSObject {
             }
             self.fps = videoTrack.nominalFrameRate
             
-            let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-            assetReader.add(output)
+            let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoSettings)
+            guard assetReader.canAdd(videoOutput) else {
+                return
+            }
+            assetReader.add(videoOutput)
             assetReader.startReading()
             
             self.decompressionSession = nil
             self.videoFrameModels.removeAll()
-            while assetReader.status == .reading {
-                guard let sampleBuffer = output.copyNextSampleBuffer() else {
+            while (.reading == assetReader.status) {
+                guard let sampleBuffer = videoOutput.copyNextSampleBuffer() else {
+                    continue
+                }
+                guard CMSampleBufferIsValid(sampleBuffer) else {
                     continue
                 }
                 if self.decompressionSession ==  nil {
@@ -73,12 +154,100 @@ class PEDTVideoClipsEditManager: NSObject {
                 VTDecompressionSessionDecodeFrame(session, sampleBuffer: sampleBuffer, flags: flags, frameRefcon: nil, infoFlagsOut: &infoFlags)
             }
 
-            DispatchQueue.main.async {
-                decompressionCompletionCallback?(self.videoFrameModels)
+            if (.completed == assetReader.status) {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
             }
+
         }
     }
     
+    func readVideoSourceAndDecodeToPcm(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            guard let asset = self.asset else {
+                return
+            }
+            guard let assetReader = try? AVAssetReader(asset: asset) else {
+                return
+            }
+            guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
+                return
+            }
+            
+            let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: self.audioSettings)
+            guard assetReader.canAdd(audioOutput) else {
+                return
+            }
+            assetReader.add(audioOutput)
+            assetReader.startReading()
+            
+            while (.reading == assetReader.status) {
+                guard let sampleBuffer = audioOutput.copyNextSampleBuffer() else {
+                    continue
+                }
+                guard CMSampleBufferIsValid(sampleBuffer) else {
+                    continue
+                }
+                guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+                    continue
+                }
+                var length = 0
+                var outputData: UnsafeMutablePointer<Int8>?
+                CMBlockBufferGetDataPointer(blockBuffer,
+                                           atOffset: 0,
+                                           lengthAtOffsetOut: nil,
+                                           totalLengthOut: &length,
+                                           dataPointerOut: &outputData)
+                guard let bytes = outputData else {
+                    continue
+                }
+                let pcm = Data(bytes: bytes, count: length)
+                let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                let index = self.getIndexOfVideoFrameModel(pts: pts)
+                guard index != -1 else {
+                    continue
+                }
+                
+                var videoFrameModel = self.videoFrameModels[index]
+                videoFrameModel.pcmData = pcm
+                videoFrameModel.audioFormat = AVAudioFormat(settings: self.audioSettings)
+            }
+
+            if (.completed == assetReader.status) {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+            }
+
+        }
+    }
+    
+    func audioDecode(sampleBuffer: CMSampleBuffer) -> PEDTAudioFrameModel? {
+        let mBuffers = AudioBuffer(mNumberChannels: 0,mDataByteSize: 0,mData: nil)
+        var audioBufferList = AudioBufferList(mNumberBuffers: 1, mBuffers: mBuffers)
+        var blockBuffer: CMBlockBuffer?
+        let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(sampleBuffer, bufferListSizeNeededOut: nil,
+                                                                             bufferListOut: &audioBufferList,
+                                                                             bufferListSize: MemoryLayout<AudioBufferList>.size,
+                                                                             blockBufferAllocator: nil,
+                                                                             blockBufferMemoryAllocator: nil,
+                                                                             flags: 0,
+                                                                             blockBufferOut: &blockBuffer
+        )
+        guard status == noErr, blockBuffer != nil else {
+            return nil
+        }
+        
+        // 拷贝 PCM 数据
+        let audioBuffer = audioBufferList.mBuffers
+        guard let audioBufferData = audioBuffer.mData else {
+            return nil
+        }
+        let pcmData = Data(bytes: audioBufferData, count: Int(audioBuffer.mDataByteSize))
+        let audioFrame = PEDTAudioFrameModel(pcmData: pcmData, sampleRate: 44100, channels: 2, pts: CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
+        return audioFrame
+    }
     
     /// 导出视频资源
     /// - Parameter outputURL: 输出视频资源的路径
@@ -403,12 +572,30 @@ class PEDTVideoClipsEditHelper: NSObject {
         return outputPixelBuffer
     }
 }
-
+    
+/// 视频帧数据Model模型
 struct PEDTVideoFrameModel {
-    /// 图像数据流
+    /// PixelBuffer图形数据流
     var pixelBuffer: CVPixelBuffer
+    /// PCM音频数据流
+    var pcmData: Data?
+    /// 音频格式(包括sampleRate采样率, channel音频通道数等参数)
+    var audioFormat: AVAudioFormat?
+    
     /// 视频时间戳
     let pts: CMTime
     /// 总时长
     let duration: CMTime
+}
+
+/// 音频帧eModel数据模型
+struct PEDTAudioFrameModel {
+    /// 音频流数据
+    var pcmData: Data
+    /// 音频采样率
+    let sampleRate: Double
+    /// 音频通道数
+    let channels: UInt32
+    /// 音频时间戳
+    let pts: CMTime
 }
