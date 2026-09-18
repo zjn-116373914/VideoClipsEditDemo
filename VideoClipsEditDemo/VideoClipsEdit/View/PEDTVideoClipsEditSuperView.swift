@@ -66,7 +66,7 @@ class PEDTVideoClipsEditSuperView: UIView {
     public func loadVideoSource(videoURL: URL, decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         let asset = AVAsset(url: videoURL)
         self.videoClipsEditManager.loadVideoSource(asset: asset)
-        self.videoClipsEditManager.readVideoSourceAndDecodeToPixelBuffer { [weak self] videoFrameModels in
+        self.videoClipsEditManager.readVideoSourceDecodeToPixelAndPcm { [weak self] videoFrameModels in
             guard let self = self else {
                 return
             }

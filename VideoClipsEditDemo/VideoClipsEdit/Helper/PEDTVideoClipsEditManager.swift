@@ -28,7 +28,8 @@ class PEDTVideoClipsEditManager: NSObject {
     func loadVideoSource(asset: AVAsset) {
         self.asset = asset
     }
-    
+    /// 视频帧率
+    var fps = 0.0 as Float
     /// 视频帧Model数据模型的流数组
     var videoFrameModels = [PEDTVideoFrameModel]()
     func getIndexOfVideoFrameModel(pts: CMTime) -> Int {
@@ -41,21 +42,44 @@ class PEDTVideoClipsEditManager: NSObject {
         
         return -1
     }
-    /// 视频帧率
-    var fps = 0.0 as Float
+
 
     
+    func readVideoSourceDecodeToPixelAndPcm(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+        self.readVideoSourceAndDecodeToPixelBuffer { [weak self] videoFrameModels in
+            guard let self = self else {
+                return
+            }
+            
+            self.readVideoSourceAndDecodeToPcm { [weak self] videoFrameModels in
+                guard let self = self else {
+                    return
+                }
+                
+                completionCallback?(self.videoFrameModels)
+            }
+        }
+    }
     
     /// 读取Video视频资源并且Decode解码视频帧
     func readVideoSourceAndDecodeToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.asset else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             guard let assetReader = try? AVAssetReader(asset: asset) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             
@@ -63,6 +87,9 @@ class PEDTVideoClipsEditManager: NSObject {
             
             let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoSettings)
             guard assetReader.canAdd(videoOutput) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             assetReader.add(videoOutput)
@@ -102,18 +129,30 @@ class PEDTVideoClipsEditManager: NSObject {
     func readVideoSourceAndDecompressionToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.asset else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             guard let assetReader = try? AVAssetReader(asset: asset) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             self.fps = videoTrack.nominalFrameRate
             
             let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoSettings)
             guard assetReader.canAdd(videoOutput) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             assetReader.add(videoOutput)
@@ -166,17 +205,29 @@ class PEDTVideoClipsEditManager: NSObject {
     func readVideoSourceAndDecodeToPcm(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.asset else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             guard let assetReader = try? AVAssetReader(asset: asset) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             
             let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: self.audioSettings)
             guard assetReader.canAdd(audioOutput) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
                 return
             }
             assetReader.add(audioOutput)
@@ -284,13 +335,12 @@ class PEDTVideoClipsEditManager: NSObject {
                     AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
                 ]
             ]
-            
+            // ---- Video Input ----
             let videoInput = AVAssetWriterInput(
                 mediaType: .video,
                 outputSettings: videoSettings
             )
             videoInput.expectsMediaDataInRealTime = false
-            
             let adaptor = AVAssetWriterInputPixelBufferAdaptor(
                 assetWriterInput: videoInput,
                 sourcePixelBufferAttributes: [
@@ -300,11 +350,22 @@ class PEDTVideoClipsEditManager: NSObject {
                     kCVPixelBufferIOSurfacePropertiesKey as String: [:] // 真机必须
                 ]
             )
-            
             assetWriter.add(videoInput)
+            
+            // ---- Audio Input ----
+            let audioInput = AVAssetWriterInput(
+                mediaType: .audio,
+                outputSettings: [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: 44100,
+                    AVNumberOfChannelsKey: 2,
+                    AVEncoderBitRateKey: 128000
+                ]
+            )
+            assetWriter.add(audioInput)
+            
             assetWriter.startWriting()
             assetWriter.startSession(atSourceTime: .zero)
-            
             DispatchQueue.main.async {
                 var frameIndex = 0
                 videoInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_requestMediaDataWhenReady()")) { [weak videoInput] in
