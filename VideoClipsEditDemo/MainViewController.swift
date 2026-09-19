@@ -8,7 +8,7 @@
 import UIKit
 import Toast_Swift
 
-let VideoName = "VideoSource01.MP4"
+let VideoName = "VideoSource01.mp4"
 class MainViewController: UIViewController {
     lazy var videoClipsEditSuperView = {
         let myself = PEDTVideoClipsEditSuperView()
@@ -33,15 +33,15 @@ class MainViewController: UIViewController {
             self.videoClipsEditSuperView.heightAnchor.constraint(equalToConstant: kScreenWidth + 10 + 80)
         ])
         
-        /* ========== [显示]过渡动画,[关闭]用户交互 start ==========  */
-        kMainWindow?.isUserInteractionEnabled = false
-        self.view.makeToastActivity(.center)
-        /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
         guard let videoAssetStr = Bundle.main.path(forResource: VideoName, ofType: "") else {
             return
         }
         let videoURL = NSURL(fileURLWithPath: videoAssetStr) as URL
-        self.videoClipsEditSuperView.loadVideoSource(videoURL: videoURL) { [weak self] videoFrameModels in
+        /* ========== [显示]过渡动画,[关闭]用户交互 start ==========  */
+        kMainWindow?.isUserInteractionEnabled = false
+        self.view.makeToastActivity(.center)
+        /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
+        self.videoClipsEditSuperView.loadVideoSource(videoURL: videoURL) { [weak self] videoFrameModels, audioFrameModels in
             guard let self = self else {
                 return
             }
@@ -58,7 +58,10 @@ class MainViewController: UIViewController {
         kMainWindow?.isUserInteractionEnabled = false
         self.view.makeToastActivity(.center)
         /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
-        self.videoClipsEditSuperView.greyRenderVideoClips { videoFrameModels in
+        self.videoClipsEditSuperView.greyRenderVideoClips { [weak self] videoFrameModels in
+            guard let self = self else {
+                return
+            }
             /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
             kMainWindow?.isUserInteractionEnabled = true
             self.view.hideToastActivity()
@@ -74,7 +77,10 @@ class MainViewController: UIViewController {
         kMainWindow?.isUserInteractionEnabled = false
         self.view.makeToastActivity(.center)
         /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
-        self.videoClipsEditSuperView.cropVideoClips { videoFrameModels in
+        self.videoClipsEditSuperView.cropVideoClips { [weak self] videoFrameModels, audioFrameModels in
+            guard let self = self else {
+                return
+            }
             /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
             kMainWindow?.isUserInteractionEnabled = true
             self.view.hideToastActivity()
@@ -90,7 +96,10 @@ class MainViewController: UIViewController {
         /* ========== [显示]过渡动画,[关闭]用户交互 end ==========  */
         let documentPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
         let outputURL = NSURL(fileURLWithPath: "\(documentPath)/output.mp4") as URL
-        self.videoClipsEditSuperView.exportVideoSource(outputURL: outputURL) { outputURL in
+        self.videoClipsEditSuperView.exportVideoSource(outputURL: outputURL) { [weak self] outputURL in
+            guard let self = self else {
+                return
+            }
             /* ========== [隐藏]过渡动画,[开启]用户交互 start ==========  */
             kMainWindow?.isUserInteractionEnabled = true
             self.view.hideToastActivity()

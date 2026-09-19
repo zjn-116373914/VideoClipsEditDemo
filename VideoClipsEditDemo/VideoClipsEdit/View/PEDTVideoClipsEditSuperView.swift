@@ -63,14 +63,14 @@ class PEDTVideoClipsEditSuperView: UIView {
     
     /// 加载视频资源
     /// - Parameter videoURL: 资源URL链接
-    public func loadVideoSource(videoURL: URL, decompressionCompletionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+    public func loadVideoSource(videoURL: URL, completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel], _ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
         let asset = AVAsset(url: videoURL)
         self.videoClipsEditManager.loadVideoSource(asset: asset)
-        self.videoClipsEditManager.readVideoSourceDecodeToPixelAndPcm { [weak self] videoFrameModels in
+        self.videoClipsEditManager.readVideoSourceDecodeToPixelAndPcm { [weak self] videoFrameModels, audioFrameModels in
             guard let self = self else {
                 return
             }
-            decompressionCompletionCallback?(videoFrameModels)
+            completionCallback?(videoFrameModels, audioFrameModels)
             
             //更新 底部视频片段的预览图集合
             self.reloadVideoClipsPreImages()
@@ -85,31 +85,40 @@ class PEDTVideoClipsEditSuperView: UIView {
     ///   - outputURL: 导出路径
     ///   - exportCompletionCallback: 导出完成后的Callback回调函数
     public func exportVideoSource(outputURL: URL, exportCompletionCallback: ((_ outputPath: URL?) -> Void)? = nil) {
-        self.videoClipsEditManager.exportVideoSource(outputURL: outputURL, exportCompletionCallback: exportCompletionCallback)
+        self.videoClipsEditManager.exportVideoSource(outputURL: outputURL, completionCallback: exportCompletionCallback)
     }
     
     /// 视频片段剪切
-    public func cropVideoClips(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]?) -> Void)? = nil) {
+    public func cropVideoClips(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel], _ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             let startRatio = self.videoClipsEditBottomView.videoClipsDragView.startRatio
             let endRatio = self.videoClipsEditBottomView.videoClipsDragView.endRatio
             let videoFrameModels = self.videoClipsEditManager.videoFrameModels
+            let audioFrameModels = self.videoClipsEditManager.audioFrameModels
             
-            let startIndex = Int(startRatio * CGFloat(videoFrameModels.count - 1))
-            let endIndex = Int(endRatio * CGFloat(videoFrameModels.count - 1))
-            if (endIndex - startIndex) <= 0 {
+            let startIndexOfVideo = Int(startRatio * CGFloat(videoFrameModels.count - 1))
+            let endIndexVideo = Int(endRatio * CGFloat(videoFrameModels.count - 1))
+            if (endIndexVideo - startIndexOfVideo) < 0 {
                 return
             }
-            
-            let cacheVideoFrameModels = videoFrameModels[startIndex...endIndex]
+            let cacheVideoFrameModels = videoFrameModels[startIndexOfVideo...endIndexVideo]
             self.videoClipsEditManager.videoFrameModels.removeAll()
             self.videoClipsEditManager.videoFrameModels.append(contentsOf: cacheVideoFrameModels)
+            
+            let startIndexOfAudio = Int(startRatio * CGFloat(audioFrameModels.count - 1))
+            let endIndexAudio = Int(endRatio * CGFloat(audioFrameModels.count - 1))
+            if (endIndexAudio - startIndexOfAudio) < 0 {
+                return
+            }
+            let cacheAudioFrameModels = audioFrameModels[startIndexOfAudio...endIndexAudio]
+            self.videoClipsEditManager.audioFrameModels.removeAll()
+            self.videoClipsEditManager.audioFrameModels.append(contentsOf: cacheAudioFrameModels)
             
             DispatchQueue.main.async {
                 self.reloadVideoClipsPreImages()
                 self.videoClipsEditBottomView.videoClipsDragView.setEndRatio(value: 1.0)
                 self.videoClipsEditBottomView.videoClipsDragView.setStartRatio(value: 0.0)
-                completionCallback?(self.videoClipsEditManager.videoFrameModels)
+                completionCallback?(self.videoClipsEditManager.videoFrameModels, self.videoClipsEditManager.audioFrameModels)
             }
         }
     }
