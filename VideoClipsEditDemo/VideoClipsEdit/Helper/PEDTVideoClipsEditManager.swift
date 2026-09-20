@@ -187,10 +187,29 @@ class PEDTVideoClipsEditManager: NSObject {
                 guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                     continue
                 }
-                let pixelBuffer = imageBuffer as CVPixelBuffer
+                /*
+                 官方建议不要直接将CMSampleBufferGetImageBuffer获取到的Buffer赋值到内存变量中
+                 而是通过CVPixelBufferCreate拷贝一份缓存赋值到内存变量中
+                 否则会出现内存泄漏的问题
+                 */
+                let pixelBufferWidth = CGFloat(CVPixelBufferGetWidth(imageBuffer))
+                let pixelBufferHeight = CGFloat(CVPixelBufferGetHeight(imageBuffer))
+                let format = CVPixelBufferGetPixelFormatType((imageBuffer))
+                let attrs: [String: Any] = [
+                    kCVPixelBufferMetalCompatibilityKey as String: true,
+                    kCVPixelBufferCGImageCompatibilityKey as String: true,
+                    kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+                    kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+                ]
+                var cachePixelBuffer: CVPixelBuffer?
+                CVPixelBufferCreate(nil, Int(pixelBufferWidth), Int(pixelBufferHeight),
+                                    format, attrs as CFDictionary, &cachePixelBuffer)
+                guard let pixelBuffer = cachePixelBuffer else {
+                    continue
+                }
+                /* ======================================================================= */
                 let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
                 let duration = CMSampleBufferGetDuration(sampleBuffer)
-                
                 let videoFrameModel = PEDTVideoFrameModel(pixelBuffer: pixelBuffer, pts: pts, duration: duration)
                 self.videoFrameModels.append(videoFrameModel)
             }
@@ -705,10 +724,11 @@ class PEDTVideoClipsEditHelper: NSObject {
             kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
             kCVPixelBufferIOSurfacePropertiesKey as String: [:]
         ]
+        let format = CVPixelBufferGetPixelFormatType((inputPixelBuffer))
         let status = CVPixelBufferCreate(
             nil,
             width, height,
-            kCVPixelFormatType_32BGRA,   // 或保持原格式
+            format,   // 或保持原格式
             attrs as CFDictionary,
             &outputPixelBuffer
         )
@@ -740,10 +760,11 @@ class PEDTVideoClipsEditHelper: NSObject {
             kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
             kCVPixelBufferIOSurfacePropertiesKey as String: [:]
         ]
+        let format = CVPixelBufferGetPixelFormatType((inputPixelBuffer))
         let status = CVPixelBufferCreate(
             nil,
             Int(inputCoreImage.extent.width), Int(inputCoreImage.extent.height),
-            kCVPixelFormatType_32BGRA,   // 或保持原格式
+            format,   // 或保持原格式
             attrs as CFDictionary,
             &outputPixelBuffer
         )
@@ -752,6 +773,7 @@ class PEDTVideoClipsEditHelper: NSObject {
         }
         // 4) GPU render —— 关键：用共享的 CIContext，别每次创建
         keyContext.render(outputCoreImage, to: outputPixelBuffer)
+        
         return outputPixelBuffer
     }
 }
