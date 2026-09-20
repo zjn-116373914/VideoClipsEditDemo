@@ -72,6 +72,9 @@ class PEDTVideoClipsEditSuperView: UIView {
             }
             completionCallback?(videoFrameModels, audioFrameModels)
             
+            if (videoFrameModels.count <= 0) {
+                return
+            }
             //更新 底部视频片段的预览图集合
             self.reloadVideoClipsPreImages()
             self.videoClipsEditBottomView.videoClipsDragView.endRatio = 1.0

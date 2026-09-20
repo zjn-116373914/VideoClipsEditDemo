@@ -37,11 +37,10 @@ class PEDTVideoClipsEditManager: NSObject {
     var audioFrameModels = [PEDTAudioFrameModel]()
     
     func readVideoSourceDecodeToPixelAndPcm(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel], _ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
-        self.readVideoSourceAndDecodeToPixelBuffer { [weak self] videoFrameModels in
+        self.readVideoSourceAndDecompressionToPixelBuffer { [weak self] videoFrameModels in
             guard let self = self else {
                 return
             }
-            
             self.readVideoSourceAndDecodeToAudioPcm { [weak self] audioFrameModels in
                 guard let self = self else {
                     return
@@ -51,8 +50,100 @@ class PEDTVideoClipsEditManager: NSObject {
             }
         }
     }
-    
-    /// 读取Video视频资源并且Decode解码视频帧
+        
+    /// 视频解码器
+    private var decompressionSession: VTDecompressionSession?
+    /// 自定义解码器Decompression进行视频解码
+    func readVideoSourceAndDecompressionToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
+        DispatchQueue(label: "\(Self.self)_\(#function)").async {
+            guard let asset = self.videoAsset else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+                return
+            }
+            guard let assetReader = try? AVAssetReader(asset: asset) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+                return
+            }
+            guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+                return
+            }
+            self.fps = videoTrack.nominalFrameRate
+            
+            let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
+            guard assetReader.canAdd(videoOutput) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+                return
+            }
+            assetReader.add(videoOutput)
+            assetReader.startReading()
+            
+            self.decompressionSession = nil
+            self.videoFrameModels.removeAll()
+            while (.reading == assetReader.status) {
+                guard let sampleBuffer = videoOutput.copyNextSampleBuffer() else {
+                    continue
+                }
+                guard CMSampleBufferIsValid(sampleBuffer) else {
+                    continue
+                }
+                if self.decompressionSession ==  nil {
+                    let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer)
+                    /*
+                     decompressionOutputCallback : 视频帧解码完成后的Callback回调函数
+                     */
+                    self.decompressionSession = PEDTVideoClipsEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, duration) in
+                        guard status == noErr,
+                              let imageBuffer = imageBuffer,
+                              let refCon = outputRefCon else {
+                            return
+                        }
+                        // 把 void* 转回 Swift 对象
+                        let manager = Unmanaged<PEDTVideoClipsEditManager>.fromOpaque(refCon).takeUnretainedValue()
+                        let pixelBuffer = imageBuffer as CVPixelBuffer
+                        manager.videoFrameModels.append(PEDTVideoFrameModel(pixelBuffer: pixelBuffer, pts: pts, duration: duration))
+                    })
+                }
+                guard let session = self.decompressionSession else {
+                    continue
+                }
+                
+                let flags: VTDecodeFrameFlags = []
+                var infoFlags: VTDecodeInfoFlags = []
+                VTDecompressionSessionDecodeFrame(session, sampleBuffer: sampleBuffer, flags: flags, frameRefcon: nil, infoFlagsOut: &infoFlags)
+            }
+            
+            if (.completed == assetReader.status ||
+                .failed == assetReader.status ||
+                .cancelled == assetReader.status) {
+                DispatchQueue.main.async {
+                    /*
+                     VTDecompressionSessionDecodeFrame是异步解码
+                     所以数组插入顺序不是时间序列顺序
+                     所以需要对象视频帧数组进行重新排序
+                     */
+                    self.videoFrameModels.sort { videoFrameModelA, videoFrameModelB in
+                        if videoFrameModelA.pts.value > videoFrameModelB.pts.value {
+                            return false
+                        } else {
+                            return true
+                        }
+                    }
+                    completionCallback?(self.videoFrameModels)
+                }
+            }
+            
+        }
+    }
+    /// 系统解码器进行视频解码(会使用兼容性最强的32BGRA格式进行解码,所以内存占用会特别大)
     func readVideoSourceAndDecodeToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.videoAsset else {
@@ -104,7 +195,9 @@ class PEDTVideoClipsEditManager: NSObject {
                 self.videoFrameModels.append(videoFrameModel)
             }
             
-            if (.completed == assetReader.status) {
+            if (.completed == assetReader.status ||
+                .failed == assetReader.status ||
+                .cancelled == assetReader.status) {
                 DispatchQueue.main.async {
                     completionCallback?(self.videoFrameModels)
                 }
@@ -113,84 +206,6 @@ class PEDTVideoClipsEditManager: NSObject {
         }
     }
     
-    /// 视频解码器
-    private var decompressionSession: VTDecompressionSession?
-    /// 读取Video视频资源,并且Decompression解码视频帧数据
-    func readVideoSourceAndDecompressionToPixelBuffer(completionCallback: ((_ videoFrameModels: [PEDTVideoFrameModel]) -> Void)? = nil) {
-        DispatchQueue(label: "\(Self.self)_\(#function)").async {
-            guard let asset = self.videoAsset else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-                return
-            }
-            guard let assetReader = try? AVAssetReader(asset: asset) else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-                return
-            }
-            guard let videoTrack = asset.tracks(withMediaType: .video).first else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-                return
-            }
-            self.fps = videoTrack.nominalFrameRate
-            
-            let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoReaderSettings)
-            guard assetReader.canAdd(videoOutput) else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-                return
-            }
-            assetReader.add(videoOutput)
-            assetReader.startReading()
-            
-            self.decompressionSession = nil
-            self.videoFrameModels.removeAll()
-            while (.reading == assetReader.status) {
-                guard let sampleBuffer = videoOutput.copyNextSampleBuffer() else {
-                    continue
-                }
-                guard CMSampleBufferIsValid(sampleBuffer) else {
-                    continue
-                }
-                if self.decompressionSession ==  nil {
-                    let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer)
-                    /*
-                     decompressionOutputCallback : 视频帧解码完成后的Callback回调函数
-                     */
-                    self.decompressionSession = PEDTVideoClipsEditHelper.creatDecompressionSession(formatDescription: formatDescription, target: self, decompressionOutputCallback: { (outputRefCon, sourceFrameRefCon, status, infoFlags, imageBuffer, pts, duration) in
-                        guard status == noErr,
-                              let imageBuffer = imageBuffer,
-                              let refCon = outputRefCon else {
-                            return
-                        }
-                        // 把 void* 转回 Swift 对象
-                        let manager = Unmanaged<PEDTVideoClipsEditManager>.fromOpaque(refCon).takeUnretainedValue()
-                        let pixelBuffer = imageBuffer as CVPixelBuffer
-                        manager.videoFrameModels.append(PEDTVideoFrameModel(pixelBuffer: pixelBuffer, pts: pts, duration: duration))
-                    })
-                }
-                guard let session = self.decompressionSession else {
-                    continue
-                }
-                
-                let flags: VTDecodeFrameFlags = []
-                var infoFlags: VTDecodeInfoFlags = []
-                VTDecompressionSessionDecodeFrame(session, sampleBuffer: sampleBuffer, flags: flags, frameRefcon: nil, infoFlagsOut: &infoFlags)
-            }
-            
-            if (.completed == assetReader.status) {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-            }
-            
-        }
-    }
     
     func readVideoSourceAndDecodeToAudioPcm(completionCallback: ((_ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
@@ -261,7 +276,7 @@ class PEDTVideoClipsEditManager: NSObject {
     }
     
     var isVideoInputFinished = false
-    var isAudioInputFinished = false
+    var isAudioInputFinished = true
     func exportVideoSource(outputURL: URL, completionCallback: ((_ outputPath: URL?) -> Void)? = nil) {
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             let videoSourcePath = outputURL.path
@@ -313,16 +328,16 @@ class PEDTVideoClipsEditManager: NSObject {
             assetWriter.add(videoInput)
             
             // ---- Audio Input ----
-            let audioInput = AVAssetWriterInput(
-                mediaType: .audio,
-                outputSettings: [
-                    AVFormatIDKey: kAudioFormatMPEG4AAC,
-                    AVSampleRateKey: kAudioSampleRate,
-                    AVNumberOfChannelsKey: 2,
-                    AVEncoderBitRateKey: 128000
-                ]
-            )
-            assetWriter.add(audioInput)
+//            let audioInput = AVAssetWriterInput(
+//                mediaType: .audio,
+//                outputSettings: [
+//                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+//                    AVSampleRateKey: kAudioSampleRate,
+//                    AVNumberOfChannelsKey: 2,
+//                    AVEncoderBitRateKey: 128000
+//                ]
+//            )
+//            assetWriter.add(audioInput)
             
             assetWriter.startWriting()
             assetWriter.startSession(atSourceTime: .zero)
@@ -383,69 +398,69 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
             }
             
-            DispatchQueue.main.async {
-                var audioFrameIndex = 0
-                audioInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_audioInput_requestMediaDataWhenReady()")) { [weak audioInput] in
-                    guard let audioInput = audioInput else {
-                        return
-                    }
-                    while audioInput.isReadyForMoreMediaData {
-                        if (audioFrameIndex >= self.audioFrameModels.count) {
-                            audioInput.markAsFinished()
-                            self.isAudioInputFinished = true
-                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
-                                assetWriter.finishWriting {
-                                    if assetWriter.status == .completed {
-                                        DispatchQueue.main.async {
-                                            completionCallback?(outputURL)
-                                        }
-                                    } else if let error = assetWriter.error {
-                                        DispatchQueue.main.async {
-                                            completionCallback?(outputURL)
-                                        }
-                                        print("写入失败 ❌", error, videoSourcePath)
-                                    }
-                                }
-                            }
-                            return
-                        }
-                        
-                        let audioFrameModel = self.audioFrameModels[audioFrameIndex]
-                        let pcmData = audioFrameModel.pcmData
-                        let sampleCount = audioFrameModel.sampleCount
-                        let pts = CMTime(value: CMTimeValue(sampleCount),timescale: CMTimeScale(kAudioSampleRate))
-                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts) else {
-                            audioFrameIndex = audioFrameIndex + 1
-                            continue
-                        }
-                        
-                        let isSuccess = audioInput.append(sampleBuffer)
-                        if (isSuccess == false) {
-                            audioInput.markAsFinished()
-                            self.isAudioInputFinished = true
-                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
-                                assetWriter.finishWriting {
-                                    if assetWriter.status == .completed {
-                                        DispatchQueue.main.async {
-                                            completionCallback?(outputURL)
-                                        }
-                                    } else if let error = assetWriter.error {
-                                        DispatchQueue.main.async {
-                                            completionCallback?(outputURL)
-                                        }
-                                        print("写入失败 ❌", error, videoSourcePath)
-                                    }
-                                }
-                            }
-                            return
-                        }
-                        
-                        audioFrameIndex = audioFrameIndex + 1
-                    }
-                    
-                }
-                
-            }
+//            DispatchQueue.main.async {
+//                var audioFrameIndex = 0
+//                audioInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_audioInput_requestMediaDataWhenReady()")) { [weak audioInput] in
+//                    guard let audioInput = audioInput else {
+//                        return
+//                    }
+//                    while audioInput.isReadyForMoreMediaData {
+//                        if (audioFrameIndex >= self.audioFrameModels.count) {
+//                            audioInput.markAsFinished()
+//                            self.isAudioInputFinished = true
+//                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
+//                                assetWriter.finishWriting {
+//                                    if assetWriter.status == .completed {
+//                                        DispatchQueue.main.async {
+//                                            completionCallback?(outputURL)
+//                                        }
+//                                    } else if let error = assetWriter.error {
+//                                        DispatchQueue.main.async {
+//                                            completionCallback?(outputURL)
+//                                        }
+//                                        print("写入失败 ❌", error, videoSourcePath)
+//                                    }
+//                                }
+//                            }
+//                            return
+//                        }
+//                        
+//                        let audioFrameModel = self.audioFrameModels[audioFrameIndex]
+//                        let pcmData = audioFrameModel.pcmData
+//                        let sampleCount = audioFrameModel.sampleCount
+//                        let pts = CMTime(value: CMTimeValue(sampleCount),timescale: CMTimeScale(kAudioSampleRate))
+//                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts) else {
+//                            audioFrameIndex = audioFrameIndex + 1
+//                            continue
+//                        }
+//                        
+//                        let isSuccess = audioInput.append(sampleBuffer)
+//                        if (isSuccess == false) {
+//                            audioInput.markAsFinished()
+//                            self.isAudioInputFinished = true
+//                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
+//                                assetWriter.finishWriting {
+//                                    if assetWriter.status == .completed {
+//                                        DispatchQueue.main.async {
+//                                            completionCallback?(outputURL)
+//                                        }
+//                                    } else if let error = assetWriter.error {
+//                                        DispatchQueue.main.async {
+//                                            completionCallback?(outputURL)
+//                                        }
+//                                        print("写入失败 ❌", error, videoSourcePath)
+//                                    }
+//                                }
+//                            }
+//                            return
+//                        }
+//                        
+//                        audioFrameIndex = audioFrameIndex + 1
+//                    }
+//                    
+//                }
+//                
+//            }
         }
     }
 }
@@ -466,8 +481,7 @@ class PEDTVideoClipsEditHelper: NSObject {
         let width = CMVideoFormatDescriptionGetDimensions(formatDescription).width
         let height = CMVideoFormatDescriptionGetDimensions(formatDescription).height
         let pixelBufferAttrs: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String:
-                kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
             kCVPixelBufferWidthKey as String: width,
             kCVPixelBufferHeightKey as String: height,
             kCVPixelBufferMetalCompatibilityKey as String: true
