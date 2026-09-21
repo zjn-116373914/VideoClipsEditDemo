@@ -16,21 +16,7 @@ import VideoToolbox
  */
 let kAudioSampleRate = 44100.0
 class PEDTVideoClipsEditManager: NSObject {
-    let videoReaderSettings = [
-        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
-    ] as [String : Any]
-    
-    let audioReaderSettings = [
-        AVFormatIDKey: kAudioFormatLinearPCM,
-        AVSampleRateKey: kAudioSampleRate,
-        AVNumberOfChannelsKey: 2,
-        AVLinearPCMBitDepthKey: 32,
-        AVLinearPCMIsFloatKey: true,
-        AVLinearPCMIsBigEndianKey: false
-    ] as [String : Any]
-    var audioSampleRate = 44100.0
-    
-    
+    var audioStreamBasicDescription: AudioStreamBasicDescription?
     var videoAsset: AVAsset?
     func loadVideoSource(asset: AVAsset) {
         self.videoAsset = asset
@@ -56,7 +42,7 @@ class PEDTVideoClipsEditManager: NSObject {
             }
         }
     }
-        
+    
     /// 视频解码器
     private var decompressionSession: VTDecompressionSession?
     /// 自定义解码器Decompression进行视频解码
@@ -68,7 +54,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
                 return
             }
-
+            
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
                 DispatchQueue.main.async {
                     completionCallback?(self.videoFrameModels)
@@ -159,7 +145,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
                 return
             }
-
+            
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
                 DispatchQueue.main.async {
                     completionCallback?(self.videoFrameModels)
@@ -174,7 +160,11 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
                 return
             }
-            let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoReaderSettings)
+            
+            let videoReaderSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+            ] as [String : Any]
+            let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: videoReaderSettings)
             guard assetReader.canAdd(videoOutput) else {
                 DispatchQueue.main.async {
                     completionCallback?(self.videoFrameModels)
@@ -251,7 +241,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 completionCallback?(nil, nil)
                 return
             }
-
+            
             guard let formatDescription = formatDescriptions.first else {
                 completionCallback?(nil, nil)
                 return
@@ -261,6 +251,8 @@ class PEDTVideoClipsEditManager: NSObject {
                 completionCallback?(formatDescription, nil)
                 return
             }
+            self.audioStreamBasicDescription = audioStreamBasicDescription
+            print(audioStreamBasicDescription)
             
             completionCallback?(formatDescription, audioStreamBasicDescription)
         }
@@ -268,76 +260,91 @@ class PEDTVideoClipsEditManager: NSObject {
     
     func readVideoSourceAndDecodeToAudioPcm(completionCallback: ((_ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
         self.readVideoSourceAndGetAudioDescription { formatDescription, audioStreamBasicDescription in
-            
-        }
-
-        
-        
-        DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.videoAsset else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.audioFrameModels)
-                }
+                completionCallback?(self.audioFrameModels)
                 return
             }
             guard let assetReader = try? AVAssetReader(asset: asset) else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.audioFrameModels)
-                }
+                completionCallback?(self.audioFrameModels)
                 return
             }
             guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.audioFrameModels)
-                }
+                completionCallback?(self.audioFrameModels)
                 return
             }
             
-            let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: self.audioReaderSettings)
+            var audioReaderSettings = [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: kAudioSampleRate,
+                AVNumberOfChannelsKey: 2,
+                AVLinearPCMBitDepthKey: 32,
+                AVLinearPCMIsFloatKey: true,
+                AVLinearPCMIsBigEndianKey: false
+            ] as [String : Any]
+            if let audioStreamBasicDescription = audioStreamBasicDescription {
+                audioReaderSettings = [
+                    AVFormatIDKey: kAudioFormatLinearPCM,
+                    AVSampleRateKey: audioStreamBasicDescription.mSampleRate,
+                    AVNumberOfChannelsKey: audioStreamBasicDescription.mChannelsPerFrame,
+                    AVLinearPCMBitDepthKey: 32,
+                    AVLinearPCMIsFloatKey: true,
+                    AVLinearPCMIsBigEndianKey: false,
+                ] as [String : Any]
+            }
+            
+            let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: audioReaderSettings)
             guard assetReader.canAdd(audioOutput) else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.audioFrameModels)
-                }
+                completionCallback?(self.audioFrameModels)
                 return
             }
             assetReader.add(audioOutput)
             assetReader.startReading()
             
-            while (.reading == assetReader.status) {
-                guard let sampleBuffer = audioOutput.copyNextSampleBuffer() else {
-                    continue
-                }
-                guard CMSampleBufferIsValid(sampleBuffer) else {
-                    continue
+            DispatchQueue(label: "\(Self.self)_\(#function)").async {
+                while (.reading == assetReader.status) {
+                    guard let sampleBuffer = audioOutput.copyNextSampleBuffer() else {
+                        continue
+                    }
+                    guard CMSampleBufferIsValid(sampleBuffer) else {
+                        continue
+                    }
+                    
+                    guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+                        continue
+                    }
+                    var length = 0
+                    var outputData: UnsafeMutablePointer<Int8>?
+                    CMBlockBufferGetDataPointer(blockBuffer,
+                                                atOffset: 0,
+                                                lengthAtOffsetOut: nil,
+                                                totalLengthOut: &length,
+                                                dataPointerOut: &outputData)
+                    guard let bytes = outputData else {
+                        continue
+                    }
+                    let pcm = Data(bytes: bytes, count: length)
+                    let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+                    let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+                    let audioFrameModel = PEDTAudioFrameModel(pcmData: pcm, pts: pts, sampleCount: sampleCount)
+                    self.audioFrameModels.append(audioFrameModel)
                 }
                 
-                guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
-                    continue
+                if (.completed == assetReader.status) {
+                    DispatchQueue.main.async {
+                        /*
+                         最后一帧音频采样不完整
+                         写入时会造成时间序列对不齐而造成写入失败
+                         暂时移除掉,后续再想其他办法进行优化
+                         */
+                        self.audioFrameModels.removeLast()
+                        /* ========================================== */
+                        completionCallback?(self.audioFrameModels)
+                    }
                 }
-                var length = 0
-                var outputData: UnsafeMutablePointer<Int8>?
-                CMBlockBufferGetDataPointer(blockBuffer,
-                                            atOffset: 0,
-                                            lengthAtOffsetOut: nil,
-                                            totalLengthOut: &length,
-                                            dataPointerOut: &outputData)
-                guard let bytes = outputData else {
-                    continue
-                }
-                let pcm = Data(bytes: bytes, count: length)
-                let pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
-                let audioFrameModel = PEDTAudioFrameModel(pcmData: pcm, pts: pts, sampleCount: sampleCount)
-                self.audioFrameModels.append(audioFrameModel)
+                
             }
-            
-            if (.completed == assetReader.status) {
-                DispatchQueue.main.async {
-                    completionCallback?(self.audioFrameModels)
-                }
-            }
-            
         }
+        
     }
     
     var isVideoInputFinished = false
@@ -393,16 +400,28 @@ class PEDTVideoClipsEditManager: NSObject {
             assetWriter.add(videoInput)
             
             // ---- Audio Input ----
-//            let audioInput = AVAssetWriterInput(
-//                mediaType: .audio,
-//                outputSettings: [
-//                    AVFormatIDKey: kAudioFormatMPEG4AAC,
-//                    AVSampleRateKey: kAudioSampleRate,
-//                    AVNumberOfChannelsKey: 2,
-//                    AVEncoderBitRateKey: 128000
-//                ]
-//            )
-//            assetWriter.add(audioInput)
+            var audioInput = AVAssetWriterInput(
+                mediaType: .audio,
+                outputSettings: [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: kAudioSampleRate,
+                    AVNumberOfChannelsKey: 2,
+                    AVEncoderBitRateKey: 128000
+                ]
+            )
+            if let audioStreamBasicDescription = self.audioStreamBasicDescription {
+                audioInput = AVAssetWriterInput(
+                    mediaType: .audio,
+                    outputSettings: [
+                        AVFormatIDKey: kAudioFormatMPEG4AAC,
+                        AVSampleRateKey: audioStreamBasicDescription.mSampleRate,
+                        AVNumberOfChannelsKey: audioStreamBasicDescription.mChannelsPerFrame,
+                        AVEncoderBitRateKey: 128000
+                    ]
+                )
+            }
+            
+            assetWriter.add(audioInput)
             
             assetWriter.startWriting()
             assetWriter.startSession(atSourceTime: .zero)
@@ -463,71 +482,71 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
             }
             
-//            DispatchQueue.main.async {
-//                var audioFrameIndex = 0
-//                var sampleCountSumValue = 0
-//                audioInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_audioInput_requestMediaDataWhenReady()")) { [weak audioInput] in
-//                    guard let audioInput = audioInput else {
-//                        return
-//                    }
-//                    while audioInput.isReadyForMoreMediaData {
-//                        if (audioFrameIndex >= self.audioFrameModels.count) {
-//                            audioInput.markAsFinished()
-//                            self.isAudioInputFinished = true
-//                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
-//                                assetWriter.finishWriting {
-//                                    if assetWriter.status == .completed {
-//                                        DispatchQueue.main.async {
-//                                            completionCallback?(outputURL)
-//                                        }
-//                                    } else if let error = assetWriter.error {
-//                                        DispatchQueue.main.async {
-//                                            completionCallback?(outputURL)
-//                                        }
-//                                        print("写入失败 ❌", error, videoSourcePath)
-//                                    }
-//                                }
-//                            }
-//                            return
-//                        }
-//                        
-//                        let audioFrameModel = self.audioFrameModels[audioFrameIndex]
-//                        let pcmData = audioFrameModel.pcmData
-//                        let sampleCount = audioFrameModel.sampleCount
-//                        let pts = CMTime(value: CMTimeValue(sampleCountSumValue),timescale: CMTimeScale(kAudioSampleRate))
-//                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts) else {
-//                            audioFrameIndex = audioFrameIndex + 1
-//                            continue
-//                        }
-//                        
-//                        let isSuccess = audioInput.append(sampleBuffer)
-//                        if (isSuccess == false) {
-//                            audioInput.markAsFinished()
-//                            self.isAudioInputFinished = true
-//                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
-//                                assetWriter.finishWriting {
-//                                    if assetWriter.status == .completed {
-//                                        DispatchQueue.main.async {
-//                                            completionCallback?(outputURL)
-//                                        }
-//                                    } else if let error = assetWriter.error {
-//                                        DispatchQueue.main.async {
-//                                            completionCallback?(outputURL)
-//                                        }
-//                                        print("写入失败 ❌", error, videoSourcePath)
-//                                    }
-//                                }
-//                            }
-//                            return
-//                        }
-//                        
-//                        audioFrameIndex = audioFrameIndex + 1
-//                        sampleCountSumValue = sampleCountSumValue + sampleCount
-//                    }
-//                    
-//                }
-//                
-//            }
+            DispatchQueue.main.async {
+                var audioFrameIndex = 0
+                var sampleCountSumValue = 0
+                audioInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_audioInput_requestMediaDataWhenReady()")) { [weak audioInput] in
+                    guard let audioInput = audioInput else {
+                        return
+                    }
+                    while audioInput.isReadyForMoreMediaData {
+                        if (audioFrameIndex >= self.audioFrameModels.count) {
+                            audioInput.markAsFinished()
+                            self.isAudioInputFinished = true
+                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
+                                assetWriter.finishWriting {
+                                    if assetWriter.status == .completed {
+                                        DispatchQueue.main.async {
+                                            completionCallback?(outputURL)
+                                        }
+                                    } else if let error = assetWriter.error {
+                                        DispatchQueue.main.async {
+                                            completionCallback?(outputURL)
+                                        }
+                                        print("写入失败 ❌", error, videoSourcePath)
+                                    }
+                                }
+                            }
+                            return
+                        }
+                        
+                        let audioFrameModel = self.audioFrameModels[audioFrameIndex]
+                        let pcmData = audioFrameModel.pcmData
+                        let sampleCount = audioFrameModel.sampleCount
+                        let pts = CMTime(value: CMTimeValue(sampleCountSumValue),timescale: CMTimeScale(kAudioSampleRate))
+                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts, audioStreamBasicDescription: self.audioStreamBasicDescription) else {
+                            audioFrameIndex = audioFrameIndex + 1
+                            continue
+                        }
+                        
+                        let isSuccess = audioInput.append(sampleBuffer)
+                        if (isSuccess == false) {
+                            audioInput.markAsFinished()
+                            self.isAudioInputFinished = true
+                            if (self.isVideoInputFinished == true && self.isAudioInputFinished == true) {
+                                assetWriter.finishWriting {
+                                    if assetWriter.status == .completed {
+                                        DispatchQueue.main.async {
+                                            completionCallback?(outputURL)
+                                        }
+                                    } else if let error = assetWriter.error {
+                                        DispatchQueue.main.async {
+                                            completionCallback?(outputURL)
+                                        }
+                                        print("写入失败 ❌", error, videoSourcePath)
+                                    }
+                                }
+                            }
+                            return
+                        }
+                        
+                        audioFrameIndex = audioFrameIndex + 1
+                        sampleCountSumValue = sampleCountSumValue + sampleCount
+                    }
+                    
+                }
+                
+            }
         }
     }
 }
@@ -592,7 +611,8 @@ class PEDTVideoClipsEditHelper: NSObject {
     ///   - sampleCount: 采样数量
     ///   - pts: 音频时间戳
     /// - Returns: SampleBuffer音频采样数据流
-    static func makeAudioSampleBuffer(pcmData: Data, sampleCount: Int, pts: CMTime) -> CMSampleBuffer? {
+    static func makeAudioSampleBuffer(pcmData: Data, sampleCount: Int, pts: CMTime,
+                                      audioStreamBasicDescription: AudioStreamBasicDescription?) -> CMSampleBuffer? {
         // 1. AudioStreamBasicDescription
         var asbd = AudioStreamBasicDescription(
             mSampleRate: kAudioSampleRate,
@@ -605,6 +625,19 @@ class PEDTVideoClipsEditHelper: NSObject {
             mBitsPerChannel: 16,
             mReserved: 0
         )
+        if let audioStreamBasicDescription = audioStreamBasicDescription {
+            asbd = AudioStreamBasicDescription(
+                mSampleRate: audioStreamBasicDescription.mSampleRate,
+                mFormatID: kAudioFormatLinearPCM,
+                mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+                mBytesPerPacket: 4,      // 2ch × 16bit = 4
+                mFramesPerPacket: 1,
+                mBytesPerFrame: 4,
+                mChannelsPerFrame: audioStreamBasicDescription.mChannelsPerFrame,
+                mBitsPerChannel: 16,
+                mReserved: 0
+            )
+        }
         
         var formatDesc: CMAudioFormatDescription?
         CMAudioFormatDescriptionCreate(
