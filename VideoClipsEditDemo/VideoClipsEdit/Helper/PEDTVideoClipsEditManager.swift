@@ -10,6 +10,10 @@ import UIKit
 import AVFoundation
 import VideoToolbox
 
+/**
+ 一般音频采样率为44100.0
+ iPhone拍摄视频一般是48000.0
+ */
 let kAudioSampleRate = 44100.0
 class PEDTVideoClipsEditManager: NSObject {
     let videoReaderSettings = [
@@ -24,6 +28,8 @@ class PEDTVideoClipsEditManager: NSObject {
         AVLinearPCMIsFloatKey: true,
         AVLinearPCMIsBigEndianKey: false
     ] as [String : Any]
+    var audioSampleRate = 44100.0
+    
     
     var videoAsset: AVAsset?
     func loadVideoSource(asset: AVAsset) {
@@ -62,12 +68,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
                 return
             }
-            guard let assetReader = try? AVAssetReader(asset: asset) else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-                return
-            }
+
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
                 DispatchQueue.main.async {
                     completionCallback?(self.videoFrameModels)
@@ -76,6 +77,12 @@ class PEDTVideoClipsEditManager: NSObject {
             }
             self.fps = videoTrack.nominalFrameRate
             
+            guard let assetReader = try? AVAssetReader(asset: asset) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+                return
+            }
             let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
             guard assetReader.canAdd(videoOutput) else {
                 DispatchQueue.main.async {
@@ -152,12 +159,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 }
                 return
             }
-            guard let assetReader = try? AVAssetReader(asset: asset) else {
-                DispatchQueue.main.async {
-                    completionCallback?(self.videoFrameModels)
-                }
-                return
-            }
+
             guard let videoTrack = asset.tracks(withMediaType: .video).first else {
                 DispatchQueue.main.async {
                     completionCallback?(self.videoFrameModels)
@@ -166,6 +168,12 @@ class PEDTVideoClipsEditManager: NSObject {
             }
             self.fps = videoTrack.nominalFrameRate
             
+            guard let assetReader = try? AVAssetReader(asset: asset) else {
+                DispatchQueue.main.async {
+                    completionCallback?(self.videoFrameModels)
+                }
+                return
+            }
             let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: self.videoReaderSettings)
             guard assetReader.canAdd(videoOutput) else {
                 DispatchQueue.main.async {
@@ -225,8 +233,46 @@ class PEDTVideoClipsEditManager: NSObject {
         }
     }
     
+    /// 读取Video资源中音频数据Description格式描述
+    /// - Parameter completionCallback: 完成后的Callback回调函数
+    func readVideoSourceAndGetAudioDescription(completionCallback: ((_ formatDescription: CMFormatDescription?, _ audioStreamBasicDescription: AudioStreamBasicDescription?) -> Void)? = nil) {
+        guard let asset = self.videoAsset else {
+            completionCallback?(nil, nil)
+            return
+        }
+        
+        guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
+            completionCallback?(nil, nil)
+            return
+        }
+        
+        Task {
+            guard let formatDescriptions: [CMFormatDescription] = try? await audioTrack.load(.formatDescriptions) else {
+                completionCallback?(nil, nil)
+                return
+            }
+
+            guard let formatDescription = formatDescriptions.first else {
+                completionCallback?(nil, nil)
+                return
+            }
+            
+            guard let audioStreamBasicDescription = formatDescription.audioStreamBasicDescription else {
+                completionCallback?(formatDescription, nil)
+                return
+            }
+            
+            completionCallback?(formatDescription, audioStreamBasicDescription)
+        }
+    }
     
     func readVideoSourceAndDecodeToAudioPcm(completionCallback: ((_ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
+        self.readVideoSourceAndGetAudioDescription { formatDescription, audioStreamBasicDescription in
+            
+        }
+
+        
+        
         DispatchQueue(label: "\(Self.self)_\(#function)").async {
             guard let asset = self.videoAsset else {
                 DispatchQueue.main.async {
@@ -419,6 +465,7 @@ class PEDTVideoClipsEditManager: NSObject {
             
 //            DispatchQueue.main.async {
 //                var audioFrameIndex = 0
+//                var sampleCountSumValue = 0
 //                audioInput.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_audioInput_requestMediaDataWhenReady()")) { [weak audioInput] in
 //                    guard let audioInput = audioInput else {
 //                        return
@@ -447,7 +494,7 @@ class PEDTVideoClipsEditManager: NSObject {
 //                        let audioFrameModel = self.audioFrameModels[audioFrameIndex]
 //                        let pcmData = audioFrameModel.pcmData
 //                        let sampleCount = audioFrameModel.sampleCount
-//                        let pts = CMTime(value: CMTimeValue(sampleCount),timescale: CMTimeScale(kAudioSampleRate))
+//                        let pts = CMTime(value: CMTimeValue(sampleCountSumValue),timescale: CMTimeScale(kAudioSampleRate))
 //                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts) else {
 //                            audioFrameIndex = audioFrameIndex + 1
 //                            continue
@@ -475,6 +522,7 @@ class PEDTVideoClipsEditManager: NSObject {
 //                        }
 //                        
 //                        audioFrameIndex = audioFrameIndex + 1
+//                        sampleCountSumValue = sampleCountSumValue + sampleCount
 //                    }
 //                    
 //                }
