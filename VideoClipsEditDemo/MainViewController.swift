@@ -8,7 +8,7 @@
 import UIKit
 import Toast_Swift
 
-let VideoName = "VideoSource02.mp4"
+let VideoName = "VideoSource01.mp4"
 class MainViewController: UIViewController {
     lazy var videoClipsEditSuperView = {
         let myself = PEDTVideoClipsEditSuperView()

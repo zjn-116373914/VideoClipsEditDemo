@@ -16,7 +16,8 @@ import VideoToolbox
  */
 let kAudioSampleRate = 44100.0
 class PEDTVideoClipsEditManager: NSObject {
-    var audioStreamBasicDescription: AudioStreamBasicDescription?
+    var sampleBufferAudioStreamBasicDescription: AudioStreamBasicDescription?
+    
     var videoAsset: AVAsset?
     func loadVideoSource(asset: AVAsset) {
         self.videoAsset = asset
@@ -225,41 +226,39 @@ class PEDTVideoClipsEditManager: NSObject {
     
     /// 读取Video资源中音频数据Description格式描述
     /// - Parameter completionCallback: 完成后的Callback回调函数
-    func readVideoSourceAndGetAudioDescription(completionCallback: ((_ formatDescription: CMFormatDescription?, _ audioStreamBasicDescription: AudioStreamBasicDescription?) -> Void)? = nil) {
+    func readVideoSourceAndGetAudioDescription(completionCallback: ((_ audioTrackAudioStreamBasicDescription: AudioStreamBasicDescription?) -> Void)? = nil) {
         guard let asset = self.videoAsset else {
-            completionCallback?(nil, nil)
+            completionCallback?(nil)
             return
         }
         
         guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
-            completionCallback?(nil, nil)
+            completionCallback?(nil)
             return
         }
         
         Task {
             guard let formatDescriptions: [CMFormatDescription] = try? await audioTrack.load(.formatDescriptions) else {
-                completionCallback?(nil, nil)
+                completionCallback?(nil)
                 return
             }
             
             guard let formatDescription = formatDescriptions.first else {
-                completionCallback?(nil, nil)
+                completionCallback?(nil)
                 return
             }
             
-            guard let audioStreamBasicDescription = formatDescription.audioStreamBasicDescription else {
-                completionCallback?(formatDescription, nil)
+            guard let audioTrackAudioStreamBasicDescription = formatDescription.audioStreamBasicDescription else {
+                completionCallback?(nil)
                 return
             }
-            self.audioStreamBasicDescription = audioStreamBasicDescription
-            print(audioStreamBasicDescription)
             
-            completionCallback?(formatDescription, audioStreamBasicDescription)
+            completionCallback?(audioTrackAudioStreamBasicDescription)
         }
     }
     
     func readVideoSourceAndDecodeToAudioPcm(completionCallback: ((_ audioFrameModels: [PEDTAudioFrameModel]) -> Void)? = nil) {
-        self.readVideoSourceAndGetAudioDescription { formatDescription, audioStreamBasicDescription in
+        self.readVideoSourceAndGetAudioDescription { audioTrackAudioStreamBasicDescription in
             guard let asset = self.videoAsset else {
                 completionCallback?(self.audioFrameModels)
                 return
@@ -273,7 +272,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 return
             }
             
-            var audioReaderSettings = [
+            var audioOutputSettings = [
                 AVFormatIDKey: kAudioFormatLinearPCM,
                 AVSampleRateKey: kAudioSampleRate,
                 AVNumberOfChannelsKey: 2,
@@ -281,8 +280,8 @@ class PEDTVideoClipsEditManager: NSObject {
                 AVLinearPCMIsFloatKey: true,
                 AVLinearPCMIsBigEndianKey: false
             ] as [String : Any]
-            if let audioStreamBasicDescription = audioStreamBasicDescription {
-                audioReaderSettings = [
+            if let audioStreamBasicDescription = audioTrackAudioStreamBasicDescription {
+                audioOutputSettings = [
                     AVFormatIDKey: kAudioFormatLinearPCM,
                     AVSampleRateKey: audioStreamBasicDescription.mSampleRate,
                     AVNumberOfChannelsKey: audioStreamBasicDescription.mChannelsPerFrame,
@@ -292,7 +291,7 @@ class PEDTVideoClipsEditManager: NSObject {
                 ] as [String : Any]
             }
             
-            let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: audioReaderSettings)
+            let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: audioOutputSettings)
             guard assetReader.canAdd(audioOutput) else {
                 completionCallback?(self.audioFrameModels)
                 return
@@ -307,6 +306,12 @@ class PEDTVideoClipsEditManager: NSObject {
                     }
                     guard CMSampleBufferIsValid(sampleBuffer) else {
                         continue
+                    }
+                    if self.sampleBufferAudioStreamBasicDescription == nil {
+                        if let audioFormatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+                           let audioStreamBasicDescription = audioFormatDescription.audioStreamBasicDescription {
+                            self.sampleBufferAudioStreamBasicDescription = audioStreamBasicDescription
+                        }
                     }
                     
                     guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
@@ -409,7 +414,7 @@ class PEDTVideoClipsEditManager: NSObject {
                     AVEncoderBitRateKey: 128000
                 ]
             )
-            if let audioStreamBasicDescription = self.audioStreamBasicDescription {
+            if let audioStreamBasicDescription = self.sampleBufferAudioStreamBasicDescription {
                 audioInput = AVAssetWriterInput(
                     mediaType: .audio,
                     outputSettings: [
@@ -514,7 +519,7 @@ class PEDTVideoClipsEditManager: NSObject {
                         let pcmData = audioFrameModel.pcmData
                         let sampleCount = audioFrameModel.sampleCount
                         let pts = CMTime(value: CMTimeValue(sampleCountSumValue),timescale: CMTimeScale(kAudioSampleRate))
-                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts, audioStreamBasicDescription: self.audioStreamBasicDescription) else {
+                        guard let sampleBuffer = PEDTVideoClipsEditHelper.makeAudioSampleBuffer(pcmData: pcmData, sampleCount: sampleCount, pts: pts, audioStreamBasicDescription: self.sampleBufferAudioStreamBasicDescription) else {
                             audioFrameIndex = audioFrameIndex + 1
                             continue
                         }
@@ -628,14 +633,14 @@ class PEDTVideoClipsEditHelper: NSObject {
         if let audioStreamBasicDescription = audioStreamBasicDescription {
             asbd = AudioStreamBasicDescription(
                 mSampleRate: audioStreamBasicDescription.mSampleRate,
-                mFormatID: kAudioFormatLinearPCM,
-                mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
-                mBytesPerPacket: 4,      // 2ch × 16bit = 4
-                mFramesPerPacket: 1,
-                mBytesPerFrame: 4,
+                mFormatID: audioStreamBasicDescription.mFormatID,
+                mFormatFlags: audioStreamBasicDescription.mFormatFlags,
+                mBytesPerPacket: audioStreamBasicDescription.mBytesPerPacket,      // 2ch × 16bit = 4
+                mFramesPerPacket: audioStreamBasicDescription.mFramesPerPacket,
+                mBytesPerFrame: audioStreamBasicDescription.mBytesPerFrame,
                 mChannelsPerFrame: audioStreamBasicDescription.mChannelsPerFrame,
-                mBitsPerChannel: 16,
-                mReserved: 0
+                mBitsPerChannel: audioStreamBasicDescription.mBitsPerChannel,
+                mReserved: audioStreamBasicDescription.mReserved
             )
         }
         

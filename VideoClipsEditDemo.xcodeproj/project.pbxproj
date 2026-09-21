@@ -11,7 +11,6 @@
 		0C224749305A149500D17BD0 /* PEDTVideoClipsDragView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C224748305A149500D17BD0 /* PEDTVideoClipsDragView.swift */; };
 		0C22474B305A153900D17BD0 /* PEDTVideoClipsContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C22474A305A153900D17BD0 /* PEDTVideoClipsContentView.swift */; };
 		0C34517B30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C34517A30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift */; };
-		0C6707CC306094190010A306 /* VideoSource02.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 0C6707CB306094190010A306 /* VideoSource02.mp4 */; };
 		0C85549F290C1440008651F0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C85549E290C1440008651F0 /* AppDelegate.swift */; };
 		0C8554A8290C1441008651F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C8554A7290C1441008651F0 /* Assets.xcassets */; };
 		0C8554AB290C1441008651F0 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0C8554A9290C1441008651F0 /* LaunchScreen.storyboard */; };
@@ -39,7 +38,6 @@
 		0C224748305A149500D17BD0 /* PEDTVideoClipsDragView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsDragView.swift; sourceTree = "<group>"; };
 		0C22474A305A153900D17BD0 /* PEDTVideoClipsContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsContentView.swift; sourceTree = "<group>"; };
 		0C34517A30560DA20057A017 /* PEDTVideoClipsEditSuperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEDTVideoClipsEditSuperView.swift; sourceTree = "<group>"; };
-		0C6707CB306094190010A306 /* VideoSource02.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = VideoSource02.mp4; sourceTree = "<group>"; };
 		0C85549B290C1440008651F0 /* VideoClipsEditDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VideoClipsEditDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C85549E290C1440008651F0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		0C8554A7290C1441008651F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -214,7 +212,6 @@
 			isa = PBXGroup;
 			children = (
 				0C1574DD305E110C00C030A0 /* VideoSource01.mp4 */,
-				0C6707CB306094190010A306 /* VideoSource02.mp4 */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -298,7 +295,6 @@
 			files = (
 				84B5EE962C748466005F7B8D /* Localizable.strings in Resources */,
 				84B5EE9A2C748489005F7B8D /* InfoPlist.strings in Resources */,
-				0C6707CC306094190010A306 /* VideoSource02.mp4 in Resources */,
 				0CFBF2393054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@3x.png in Resources */,
 				0CFBF23A3054B2330039DB99 /* PEDT_VideoClipsEditBody_PlayBtn_Selected@2x.png in Resources */,
 				0C8554AB290C1441008651F0 /* LaunchScreen.storyboard in Resources */,
