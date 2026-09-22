@@ -21,7 +21,7 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoPlayImageView.topAnchor.constraint(equalTo: self.topAnchor, constant: 0),
             self.videoPlayImageView.centerXAnchor.constraint(equalTo: self.centerXAnchor, constant: 0),
             self.videoPlayImageView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
-            self.videoPlayImageView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0),
+            self.videoPlayImageView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 0.75),
         ])
         self.videoPlayImageView.backgroundColor = UIColor.black
         self.videoPlayImageView.layer.cornerRadius = 10
@@ -35,6 +35,18 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoClipsEditBottomView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
             self.videoClipsEditBottomView.heightAnchor.constraint(equalToConstant: 80.0)
         ])
+        
+        self.addSubview(self.videoPlayDisplayView)
+        self.videoPlayDisplayView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            self.videoPlayDisplayView.topAnchor.constraint(equalTo: self.videoClipsEditBottomView.bottomAnchor, constant: 10),
+            self.videoPlayDisplayView.centerXAnchor.constraint(equalTo: self.centerXAnchor, constant: 0),
+            self.videoPlayDisplayView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
+            self.videoPlayDisplayView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 0.75),
+        ])
+        self.videoPlayDisplayView.backgroundColor = UIColor.black
+        self.videoPlayDisplayView.layer.cornerRadius = 10
+        self.videoPlayDisplayView.clipsToBounds = true
         
         self.videoClipsStartRatioObservation = self.videoClipsEditBottomView.videoClipsDragView.observe(\.startRatio, options: [.new, .old], changeHandler: { [weak self] sender, change in
             guard let self = self else {
@@ -59,6 +71,27 @@ class PEDTVideoClipsEditSuperView: UIView {
             let targetFrameModel = self.videoClipsEditManager.videoFrameModels[tagetIndex]
             self.videoPlayImageView.image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
         })
+        
+        
+        CMTimebaseCreateWithSourceClock(
+            allocator: kCFAllocatorDefault,
+            sourceClock: CMClockGetHostTimeClock(),
+            timebaseOut: &(self.timebase)
+        )
+        guard let timebase = self.timebase else {
+            return
+        }
+        self.videoPlayDisplayView.videoLayer.controlTimebase = self.timebase
+        CMTimebaseSetTime(timebase, time: .zero)
+        CMTimebaseSetRate(timebase, rate: 0.0)
+        
+        self.videoClipsEditBottomView.playAndPauseBtn.addTarget(self, action: #selector(playAndPauseBtnAction), for: .touchUpInside)
+    }
+    @objc func playAndPauseBtnAction() {
+        guard let timebase = self.timebase else {
+            return
+        }
+        CMTimebaseSetRate(timebase, rate: 1.0)
     }
     
     /// 加载视频资源
@@ -177,6 +210,14 @@ class PEDTVideoClipsEditSuperView: UIView {
         }
         self.videoClipsEditBottomView.videoClipsContentView.images.removeAll()
         self.videoClipsEditBottomView.videoClipsContentView.images.append(contentsOf: images)
+        
+        for videoFrameModel in videoFrameModels {
+            guard let sampleBuffer = PEDTVideoClipsEditHelper.makePixelBufferSampleBuffer(videoFrameModel.pixelBuffer,
+                                                                                          pts: videoFrameModel.pts) else {
+                continue
+            }
+            self.enqueueVideoSampleBuffer(sampleBuffer)
+        }
     }
     
     // MARK: - ================= Get And Set =================
@@ -203,6 +244,37 @@ class PEDTVideoClipsEditSuperView: UIView {
         return myself
     }()
     
+    /* ============= SampleBufferDisplayLayer And SampleBufferAudioRenderer ============= */
+    /// 视频播放的时间基
+    var timebase: CMTimebase?
+    /// 图像数据流CVPixelBuffer显示Display控件
+    lazy var videoPlayDisplayView = {
+        let myself = PEDTVideoPlayDisplayView()
+        return myself
+    }()
+    /// 插入视频频数据到画面轨
+    func enqueueVideoSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        self.videoPlayDisplayView.enqueue(sampleBuffer)
+    }
+    
+    /// 音频数据流PcmData
+    lazy var audioRenderer = {
+        let myself = AVSampleBufferAudioRenderer()
+        return myself
+    }()
+    /// 插入音频数据到音轨
+    func enqueueAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        if (self.audioRenderer.isReadyForMoreMediaData) {
+            self.audioRenderer.enqueue(sampleBuffer)
+        }
+    }
+    
+    lazy var sampleBufferSynchronizer = {
+        let myself = AVSampleBufferRenderSynchronizer()
+        myself.addRenderer(audioRenderer)
+        return myself
+    }()
+    /* ================================================================================== */
     
     deinit {
         //销毁监听对象
@@ -212,6 +284,23 @@ class PEDTVideoClipsEditSuperView: UIView {
         //销毁监听对象
         if let videoClipsEndRatioObservation = self.videoClipsEndRatioObservation {
             videoClipsEndRatioObservation.invalidate()
+        }
+    }
+}
+
+/// 视频图像显示视图 (官方推荐用UIView封装一层,不建议直接用Layer布局)
+class PEDTVideoPlayDisplayView: UIView {
+    override class var layerClass: AnyClass {
+        AVSampleBufferDisplayLayer.self
+    }
+    
+    var videoLayer: AVSampleBufferDisplayLayer {
+        layer as! AVSampleBufferDisplayLayer
+    }
+    /// 插入视频频数据到画面轨
+    func enqueue(_ sampleBuffer: CMSampleBuffer) {
+        if (self.videoLayer.isReadyForMoreMediaData) {
+            self.videoLayer.enqueue(sampleBuffer)
         }
     }
 }

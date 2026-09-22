@@ -610,7 +610,45 @@ class PEDTVideoClipsEditHelper: NSObject {
         return resultImage
     }
     
-    /// 制作Audio音频SampleBuffer
+    /// 制造PixelBuffer图形数据流SampleBuffer
+    /// - Parameters:
+    ///   - pixelBuffer: PixelBuffer图形数据流
+    ///   - pts: 视频时间序列
+    /// - Returns: 视频样品数据流CMSampleBuffer
+    static func makePixelBufferSampleBuffer(_ pixelBuffer: CVPixelBuffer, pts: CMTime) -> CMSampleBuffer? {
+        var sampleBuffer: CMSampleBuffer?
+
+        var timingInfo = CMSampleTimingInfo(
+            duration: CMTime(value: 1, timescale: pts.timescale),
+            presentationTimeStamp: pts,
+            decodeTimeStamp: .invalid
+        )
+        
+        var formatDescription: CMVideoFormatDescription?
+        CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            formatDescriptionOut: &formatDescription
+        )
+        guard let format = formatDescription else {
+            return nil
+        }
+        
+        CMSampleBufferCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: format,
+            sampleTiming: &timingInfo,
+            sampleBufferOut: &sampleBuffer
+        )
+        
+        return sampleBuffer
+    }
+    
+    /// 制造Audio音频SampleBuffer
     /// - Parameters:
     ///   - pcmData: PCM音频数据流
     ///   - sampleCount: 采样数量
@@ -706,16 +744,7 @@ class PEDTVideoClipsEditHelper: NSObject {
         
         return sampleBuffer
     }
-    
-    // MARK: - 复用！别每次 new
-    private static let keyContext: CIContext = {
-        // 指定 Metal device，确保走 GPU
-        let opts: [CIContextOption: Any] = [
-            .useSoftwareRenderer: false,
-            .cacheIntermediates: false   // 不缓存中间节点，省内存
-        ]
-        return CIContext(options: opts)
-    }()
+
     /// 缩放PixelBuffer图形对象并返回UIImage对象
     /// - Parameters:
     ///   - inputPixelBuffer: 输入PixelBuffer图形对象
@@ -862,6 +891,16 @@ class PEDTVideoClipsEditHelper: NSObject {
         
         return outputPixelBuffer
     }
+    
+    /// 创建共享上下文Context,避免重复创建导致内存开销过大
+    private static let keyContext: CIContext = {
+        // 指定 Metal device，确保走 GPU
+        let opts: [CIContextOption: Any] = [
+            .useSoftwareRenderer: false,
+            .cacheIntermediates: false   // 不缓存中间节点，省内存
+        ]
+        return CIContext(options: opts)
+    }()
 }
 
 /// 视频帧数据Model模型
