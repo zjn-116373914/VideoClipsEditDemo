@@ -74,23 +74,27 @@ class PEDTVideoClipsEditSuperView: UIView {
         
         self.videoClipsEditBottomView.playAndPauseBtn.addTarget(self, action: #selector(playAndPauseBtnAction), for: .touchUpInside)
     }
-    @objc func playAndPauseBtnAction() {
+    @objc func playAndPauseBtnAction(sender: UIButton) {
+        sender.isSelected = !sender.isSelected
         guard let timebase = self.timebase else {
             return
         }
-        if (CMTimebaseGetTime(timebase).value != 0) {
-            self.enqueueVideoSampleBuffersToVideoPlayDisplayLayer { [weak self] timebase in
-                guard let self = self else {
-                    return
-                }
-                guard let timebase = self.timebase else {
-                    return
-                }
-                CMTimebaseSetRate(timebase, rate: 1.0)
-            }
+        
+        if (sender.isSelected == true) {
+            CMTimebaseSetRate(timebase, rate: 1.0)
+            return
         }
         
-        CMTimebaseSetRate(timebase, rate: 1.0)
+        self.enqueueVideoSampleBuffersToVideoPlayDisplayLayer { [weak self] timebase in
+            guard let self = self else {
+                return
+            }
+            guard let timebase = self.timebase else {
+                return
+            }
+            CMTimebaseSetRate(timebase, rate: 1.0)
+        }
+        
     }
     
     /// 加载视频资源

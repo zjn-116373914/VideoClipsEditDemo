@@ -81,6 +81,7 @@ class PEDTVideoClipsBottomSuperView: UIView {
     /// [播放/暂停]按钮控件
     lazy var  playAndPauseBtn = {
         let myself = UIButton(type: .system)
+        myself.tintColor = UIColor.clear
         if let icon = UIImage(named: "PEDT_VideoClipsEditBody_PlayBtn_Normal") {
             myself.setImage(icon.withRenderingMode(.alwaysOriginal), for: .normal)
         }
