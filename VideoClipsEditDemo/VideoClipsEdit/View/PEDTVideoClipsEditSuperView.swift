@@ -21,7 +21,7 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoPlayImageView.topAnchor.constraint(equalTo: self.topAnchor, constant: 0),
             self.videoPlayImageView.centerXAnchor.constraint(equalTo: self.centerXAnchor, constant: 0),
             self.videoPlayImageView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
-            self.videoPlayImageView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 0.75),
+            self.videoPlayImageView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 0.6),
         ])
         self.videoPlayImageView.backgroundColor = UIColor.black
         self.videoPlayImageView.layer.cornerRadius = 10
@@ -42,7 +42,7 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoPlayDisplayView.topAnchor.constraint(equalTo: self.videoClipsEditBottomView.bottomAnchor, constant: 10),
             self.videoPlayDisplayView.centerXAnchor.constraint(equalTo: self.centerXAnchor, constant: 0),
             self.videoPlayDisplayView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0, constant: -20),
-            self.videoPlayDisplayView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 0.75),
+            self.videoPlayDisplayView.heightAnchor.constraint(equalTo: self.widthAnchor, multiplier: 0.6),
         ])
         self.videoPlayDisplayView.backgroundColor = UIColor.black
         self.videoPlayDisplayView.layer.cornerRadius = 10
@@ -72,25 +72,24 @@ class PEDTVideoClipsEditSuperView: UIView {
             self.videoPlayImageView.image = PEDTVideoClipsEditHelper.imageWithPixelBuffer(pixelBuffer: targetFrameModel.pixelBuffer)
         })
         
-        
-        CMTimebaseCreateWithSourceClock(
-            allocator: kCFAllocatorDefault,
-            sourceClock: CMClockGetHostTimeClock(),
-            timebaseOut: &(self.timebase)
-        )
-        guard let timebase = self.timebase else {
-            return
-        }
-        self.videoPlayDisplayView.videoLayer.controlTimebase = self.timebase
-        CMTimebaseSetTime(timebase, time: .zero)
-        CMTimebaseSetRate(timebase, rate: 0.0)
-        
         self.videoClipsEditBottomView.playAndPauseBtn.addTarget(self, action: #selector(playAndPauseBtnAction), for: .touchUpInside)
     }
     @objc func playAndPauseBtnAction() {
         guard let timebase = self.timebase else {
             return
         }
+        if (CMTimebaseGetTime(timebase).value != 0) {
+            self.enqueueVideoSampleBuffersToVideoPlayDisplayLayer { [weak self] timebase in
+                guard let self = self else {
+                    return
+                }
+                guard let timebase = self.timebase else {
+                    return
+                }
+                CMTimebaseSetRate(timebase, rate: 1.0)
+            }
+        }
+        
         CMTimebaseSetRate(timebase, rate: 1.0)
     }
     
@@ -211,13 +210,49 @@ class PEDTVideoClipsEditSuperView: UIView {
         self.videoClipsEditBottomView.videoClipsContentView.images.removeAll()
         self.videoClipsEditBottomView.videoClipsContentView.images.append(contentsOf: images)
         
-        for videoFrameModel in videoFrameModels {
-            guard let sampleBuffer = PEDTVideoClipsEditHelper.makePixelBufferSampleBuffer(videoFrameModel.pixelBuffer,
-                                                                                          pts: videoFrameModel.pts) else {
-                continue
+        self.enqueueVideoSampleBuffersToVideoPlayDisplayLayer()
+    }
+    func enqueueVideoSampleBuffersToVideoPlayDisplayLayer(completionCallback: ((_ timebase: CMTimebase?) -> Void)? = nil) {
+        self.setTimebaseZero()
+        
+        self.videoPlayDisplayView.videoLayer.flushAndRemoveImage()
+        var indexOfFrameModel = 0
+        self.videoPlayDisplayView.videoLayer.requestMediaDataWhenReady(on: DispatchQueue(label: "\(Self.self)_\(#function)_videoLayer_requestMediaDataWhenReady()")) { [weak self] in
+            guard let self = self else {
+                return
             }
-            self.enqueueVideoSampleBuffer(sampleBuffer)
+            DispatchQueue.main.async {
+                while self.videoPlayDisplayView.videoLayer.isReadyForMoreMediaData {
+                    if (indexOfFrameModel >= self.videoClipsEditManager.videoFrameModels.count) {
+                            self.videoPlayDisplayView.videoLayer.stopRequestingMediaData()
+                        completionCallback?(self.timebase)
+                        return
+                    }
+                    let videoFrameModel = self.videoClipsEditManager.videoFrameModels[indexOfFrameModel]
+                    guard let sampleBuffer = PEDTVideoClipsEditHelper.makePixelBufferSampleBuffer(videoFrameModel.pixelBuffer, pts: videoFrameModel.pts) else {
+                        indexOfFrameModel = indexOfFrameModel + 1
+                        continue
+                    }
+                    self.enqueueVideoSampleBuffer(sampleBuffer)
+                    indexOfFrameModel = indexOfFrameModel + 1
+                }
+            }
         }
+    }
+    func setTimebaseZero() {
+        if self.timebase == nil {
+            CMTimebaseCreateWithSourceClock(
+                allocator: kCFAllocatorDefault,
+                sourceClock: CMClockGetHostTimeClock(),
+                timebaseOut: &(self.timebase)
+            )
+        }
+        guard let timebase = self.timebase else {
+            return
+        }
+        CMTimebaseSetTime(timebase, time: .zero)
+        CMTimebaseSetRate(timebase, rate: 0.0)
+        self.videoPlayDisplayView.videoLayer.controlTimebase = timebase
     }
     
     // MARK: - ================= Get And Set =================
@@ -299,7 +334,8 @@ class PEDTVideoPlayDisplayView: UIView {
     }
     /// 插入视频频数据到画面轨
     func enqueue(_ sampleBuffer: CMSampleBuffer) {
-        if (self.videoLayer.isReadyForMoreMediaData) {
+        let isReadyForMoreMediaData = self.videoLayer.isReadyForMoreMediaData
+        if (isReadyForMoreMediaData == true) {
             self.videoLayer.enqueue(sampleBuffer)
         }
     }
