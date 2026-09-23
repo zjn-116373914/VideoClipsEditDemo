@@ -26,6 +26,36 @@ class PEDTVideoClipsEditManager: NSObject {
     var fps = 0.0 as Float
     /// 视频帧Model数据模型的流数组
     var videoFrameModels = [PEDTVideoFrameModel]()
+    /// 排序视频数据流的PTS时间序列
+    func sortPtsOfVideoFrameModels() {
+        /*
+         VTDecompressionSessionDecodeFrame是异步解码
+         所以数组插入顺序不是时间序列顺序
+         所以需要对象视频帧数组进行重新排序
+         */
+        self.videoFrameModels.sort { videoFrameModelA, videoFrameModelB in
+            if videoFrameModelA.pts.value > videoFrameModelB.pts.value {
+                return false
+            } else {
+                return true
+            }
+        }
+        /* ======================================================== */
+        /*
+         视频有可能是剪辑过的
+         首帧图像数据流SampleBuffer的PTS可能不是从0开始
+         而是从负数开始
+         */
+        for (index, videoFrameModel) in self.videoFrameModels.enumerated() {
+            let duration = videoFrameModel.duration
+            let pts = CMTime(value: Int64(index) * duration.value,timescale: videoFrameModel.duration.timescale)
+            
+            let cacheVideoFrameModel = PEDTVideoFrameModel(pixelBuffer: videoFrameModel.pixelBuffer, pts: pts, duration: duration)
+            self.videoFrameModels.replaceSubrange(index...index, with: [cacheVideoFrameModel])
+        }
+        /* ======================================================== */
+    }
+    
     /// 音频帧Model数据模型的流数组
     var audioFrameModels = [PEDTAudioFrameModel]()
     
@@ -119,18 +149,6 @@ class PEDTVideoClipsEditManager: NSObject {
                 .failed == assetReader.status ||
                 .cancelled == assetReader.status) {
                 DispatchQueue.main.async {
-                    /*
-                     VTDecompressionSessionDecodeFrame是异步解码
-                     所以数组插入顺序不是时间序列顺序
-                     所以需要对象视频帧数组进行重新排序
-                     */
-                    self.videoFrameModels.sort { videoFrameModelA, videoFrameModelB in
-                        if videoFrameModelA.pts.value > videoFrameModelB.pts.value {
-                            return false
-                        } else {
-                            return true
-                        }
-                    }
                     completionCallback?(self.videoFrameModels)
                 }
             }

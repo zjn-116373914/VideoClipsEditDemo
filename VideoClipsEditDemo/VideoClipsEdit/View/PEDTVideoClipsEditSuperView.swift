@@ -199,11 +199,13 @@ class PEDTVideoClipsEditSuperView: UIView {
     
     /// 更新 底部视频片段的预览图集合(数组更新不建议用KVO, 因为每次Add都会调用刷新界面的事件,增加CPU负担,也影响用户体验)
     func reloadVideoClipsPreImages() {
-        var images = [UIImage]()
-        
+        // 排序视频数据流的PTS时间序列
+        self.videoClipsEditManager.sortPtsOfVideoFrameModels()
         let videoFrameModels = self.videoClipsEditManager.videoFrameModels
         let maxCount = PEDTVideoClipsContentView.imageItemMaxCount
         let step = Int(videoFrameModels.count/maxCount)
+        
+        var images = [UIImage]()
         for index in stride(from: 0, through: videoFrameModels.count - 1, by: step) {
             let videoFrameModel = videoFrameModels[index]
             guard let smallImage = PEDTVideoClipsEditHelper.resizePixelBufferToImage(inputPixelBuffer: videoFrameModel.pixelBuffer, width: 100, height: 100) else {
